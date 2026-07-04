@@ -1,18 +1,67 @@
 #!/bin/bash
 # Initialize Complex Task Workspace
 # Usage: ./init-task.sh <task-name>
+#        PROJECT_ROOT=/explicit/path ./init-task.sh <task-name>   (skip detection, use this root)
+#        CONFIRM_ROOT=1 ./init-task.sh <task-name>                (accept the detected/proposed root)
 #
 # NOTE: This script creates an empty workspace for manual requirement drafting.
 #       For direct automation, call the skill directly:
 #         /universal-complex-task "your requirement description"
 #       The skill will auto-populate all files; you only need to confirm at 3 checkpoints.
 
+set -u
+
 TASK_NAME="${1:-task-$(date +%s)}"
+
+# --- Workspace Root Determination ---
+# Goal: never silently scatter .agent/ trees across different directories depending on
+# wherever this happens to be invoked from. Prefer the git repo root (a stable, cwd-independent
+# anchor); fall back to asking when that's not available or when scattering is already detected.
+if [ -n "${PROJECT_ROOT:-}" ]; then
+    ROOT_SOURCE="explicitly provided via PROJECT_ROOT"
+elif GIT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)"; then
+    PROJECT_ROOT="$GIT_ROOT"
+    ROOT_SOURCE="git repository root"
+else
+    PROJECT_ROOT="$(pwd)"
+    ROOT_SOURCE="current directory (no git repository detected — this is the ambiguous case)"
+fi
+
+# Scatter check: look for other .agent/tasks/ directories near PROJECT_ROOT that aren't its own.
+PARENT_DIR="$(dirname "$PROJECT_ROOT")"
+SCATTERED="$(find "$PARENT_DIR" -maxdepth 3 -type d -path "*/.agent/tasks" 2>/dev/null | grep -v "^${PROJECT_ROOT}/.agent/tasks$" || true)"
+
+NEEDS_CONFIRMATION=0
+[ -z "${GIT_ROOT:-}" ] && [ -z "${PROJECT_ROOT_EXPLICIT:-}" ] && [ -z "${PROJECT_ROOT:-}${GIT_ROOT:-}" ] || true
+if [ -z "${GIT_ROOT:-}" ] && [ -z "${1:-}" ]; then :; fi
+if [ -z "$(git rev-parse --show-toplevel 2>/dev/null || true)" ] && [ -z "${PROJECT_ROOT_WAS_EXPLICIT:-}" ]; then
+    NEEDS_CONFIRMATION=1
+fi
+[ -n "$SCATTERED" ] && NEEDS_CONFIRMATION=1
+[ -n "${PROJECT_ROOT:-}" ] && [ "${ROOT_SOURCE}" = "explicitly provided via PROJECT_ROOT" ] && NEEDS_CONFIRMATION=0
+
+if [ "$NEEDS_CONFIRMATION" = "1" ] && [ -z "${CONFIRM_ROOT:-}" ]; then
+    echo "⚠️  Workspace location needs confirmation before creating anything:"
+    echo "   Proposed root: $PROJECT_ROOT"
+    echo "   Reason: $ROOT_SOURCE"
+    if [ -n "$SCATTERED" ]; then
+        echo ""
+        echo "   Found other .agent/tasks/ director$([ "$(echo "$SCATTERED" | wc -l)" = "1" ] && echo y || echo ies) nearby — possibly from earlier runs in a different directory:"
+        echo "$SCATTERED" | sed 's/^/     - /'
+        echo "   If one of these is where this task actually belongs, re-run from there instead."
+    fi
+    echo ""
+    echo "   To accept the proposed root above:  CONFIRM_ROOT=1 $0 $TASK_NAME"
+    echo "   To use a different root:            PROJECT_ROOT=/path/to/root $0 $TASK_NAME"
+    exit 1
+fi
+
+cd "$PROJECT_ROOT" || { echo "❌ Cannot cd to $PROJECT_ROOT"; exit 1; }
 TASK_DIR=".agent/tasks/$TASK_NAME"
 
 # Existence check: refuse to overwrite existing task
 if [ -d "$TASK_DIR" ]; then
-    echo "⚠️  Task '$TASK_NAME' already exists."
+    echo "⚠️  Task '$TASK_NAME' already exists (at $PROJECT_ROOT/$TASK_DIR)."
     if [ -f "$TASK_DIR/state.json" ]; then
         STATUS=$(grep '"status"' "$TASK_DIR/state.json" | head -1 | sed 's/.*: "\([^"]*\)".*/\1/')
         PHASE=$(grep '"phase"' "$TASK_DIR/state.json" | head -1 | sed 's/.*: "\([^"]*\)".*/\1/')

@@ -20,6 +20,7 @@
 - [ ] Covered assertion ASSERT-{Y}
 - [ ] Committed at hash: {git-hash}
 - [ ] Local checks passed
+- [ ] If `tdd_required`: Commands Executed above includes a failing (RED) run before the passing (GREEN) run — N/A if `tdd_required: false`
 
 ## Next Worker Notes
 - {context the next worker needs to know}

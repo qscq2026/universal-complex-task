@@ -17,11 +17,11 @@ description: |
   pattern. Not a multi-process multi-model system.
 
   Core formula: T = (U ⊙ S ⊙ C) × O × [ (W → Cm → H → V → F)^k ]^m × A × M
-version: 3.2.0
+version: 3.3.0
 argument-hint: <complex-task-description>
 ---
 
-# Universal Complex Task Automation Framework v3.2
+# Universal Complex Task Automation Framework v3.3
 
 ## Formula
 T = (U ⊙ S ⊙ C) × O × [ (W → Cm → H → V → F)^k ]^m × A × M
@@ -41,7 +41,7 @@ T = (U ⊙ S ⊙ C) × O × [ (W → Cm → H → V → F)^k ]^m × A × M
 - k: Convergence — iterations within a single Milestone (Factory: 2-4 validation rounds)
 - m: Milestone — stage-gated waterfall nodes; each independently deliverable
 - A: Audit Log — full-chain audit (who/when/what/why/result); cross-cutting stream
-- M: Memory — cross-task/cross-round experience accumulation (reusable templates + anti-patterns)
+- M: Memory — cross-task/cross-round experience accumulation, severity-tiered and pre-loaded by role before O/W/V act (not just logged after the fact) — see `references/memory-template.md`
 
 ---
 
@@ -110,7 +110,7 @@ Before any initialization, O MUST check for existing task state.
 - `state.json` is updated by O **after every single action** (not just at milestones)
 - Frozen files (`01-04`) are NEVER overwritten during resume
 - Audit Log is append-only; resume adds `RESUME` row, never deletes history
-- Memory (`.agent/memory.md`) is read during resume but not modified until task completes
+- `06-memory.md` (task-level) is read by W/V before every Feature and updated at every Milestone Gate's memory sweep; `.agent/memory.md` (project-level) is read the same way but only written once, at Phase 5 — this keeps cross-task memory from churning mid-task while still letting within-task lessons propagate immediately
 
 ---
 
@@ -130,16 +130,23 @@ Before any initialization, O MUST check for existing task state.
    - Non-functional requirements (performance, security, compatibility)
    - Anti-requirements (explicit exclusions)
    - Assumptions & dependencies
-2. Write to `.agent/tasks/{task-id}/02-structured-spec.md`
-3. **Update state.json**: `status: INIT`, `phase: S_GENERATED`, `frozen: []`
-4. **HUMAN CHECKPOINT 1**: Present S to user; wait for confirmation or revision
-   - Phrase: "This is my understanding of your goal. Please confirm or correct."
-5. Once S is confirmed, it is FROZEN (⊙ operator)
-6. **Update state.json**: `status: CONFIRMED`, `phase: S_CONFIRMED`, `frozen: ["02"]`
+   - **Verification Requirements** (see below — this is not optional to consider, even if the answer is "no")
+2. **Verification Requirements** subsection — O must explicitly determine and state:
+   - `tdd_required`: true/false — will Worker write a failing test before implementation, per feature?
+   - `integration_test_required`: true/false — do 2+ features need a cross-feature check once both exist together?
+   - `system_test_required`: true/false — does the deliverable need an end-to-end check as a whole, once all/most milestones are done?
+   - If any is true, O must also name WHICH features/boundaries it applies to (a bare "yes" with no scope is not acceptable — e.g. "checkout flow: integration test required across F-cart, F-payment, F-order once all three are individually PASS")
+   - **Trigger check**: if U or the Functional Requirements contain language like "end-to-end", "整体", "流程", "workflow", "across", "together", O must set at least `integration_test_required: true` and name the scope, or explicitly justify why not (e.g. "single isolated script, no cross-component boundary exists")
+3. Write to `.agent/tasks/{task-id}/02-structured-spec.md`
+4. **Update state.json**: `status: INIT`, `phase: S_GENERATED`, `frozen: []`
+5. **HUMAN CHECKPOINT 1**: Present S to user; wait for confirmation or revision
+   - Phrase: "This is my understanding of your goal, including what will and won't get an integration/system-level check — please confirm or correct."
+6. Once S is confirmed, it is FROZEN (⊙ operator)
+7. **Update state.json**: `status: CONFIRMED`, `phase: S_CONFIRMED`, `frozen: ["02"]`
 
 ### 1.3 C Generation (Validation Contract) — Human Spot-Check Layer 2
 1. O translates S into machine-executable assertions BEFORE any implementation
-2. Each assertion format:
+2. Each assertion format (this is the canonical format — `references/goal-template.md`'s C section is a filled example of it, not a second definition; if they ever disagree, this section wins):
    ```
    ### ASSERT-{ID}: {Behavior Description}
    - Trigger: {precondition}
@@ -148,11 +155,26 @@ Before any initialization, O MUST check for existing task state.
    - Tool: {verification tool}
    - Evidence: {required evidence type}
    - Maps to Spec: {S requirement number}
+   - Scope: feature | milestone | system
+   - Covered by Features: F-{a}[, F-{b}, ...]
+   - Verification Timing: {when this actually gets executed — e.g. "Worker step 4, per-commit" for
+     Scope=feature, or "Milestone Gate M-i.3, after F-a + F-b both PASS" for Scope=milestone/system}
    ```
+   - `Scope: feature` → checked by V inside the normal per-Feature loop (M-i.2)
+   - `Scope: milestone` → checked once, at that milestone's Gate (M-i.3), after every feature it's `Covered by` reaches PASS/accepted-PARTIAL
+   - `Scope: system` → checked once all milestones covering it are done, at Phase 5 (or the last relevant Milestone Gate if the system boundary closes earlier)
+   - An assertion with 2+ `Covered by Features` MUST have `Scope: milestone` or `Scope: system` — never `feature`. A single-feature assertion MUST have `Scope: feature`.
 3. Write to `.agent/tasks/{task-id}/03-validation-contract.md`
 4. **Update state.json**: `phase: C_GENERATED`
-5. **HUMAN CHECKPOINT 2**: Show assertion count + coverage matrix (assertion → S requirement)
-   - Phrase: "I derived N assertions from the spec. Here is the coverage matrix. Please spot-check or approve."
+5. **HUMAN CHECKPOINT 2**: Show assertion count + coverage matrix, now with Scope and timing visible, not just spec mapping:
+   ```
+   | Assertion ID | Maps to Spec | Scope | Covered by Features | Verification Timing | Status |
+   |-------------|-------------|-------|---------------------|---------------------|--------|
+   | ASSERT-001  | FR-1        | feature | F-1               | Worker step 4       | drafted |
+   | ASSERT-005  | FR-3        | system  | F-3, F-7           | after both PASS, Phase 5 | drafted |
+   ```
+   - Phrase: "I derived N assertions from the spec — M of them are feature-level, K are milestone/system-level and only get checked once their covered features are all done. Here is the coverage matrix. Please spot-check or approve."
+   - **Mandatory self-check before presenting**: if S's Verification Requirements set `integration_test_required: true` or `system_test_required: true`, but the count of `Scope: milestone`/`Scope: system` assertions is 0, O MUST NOT silently present the matrix as-is. O must say: "S calls for integration/system-level verification but I generated 0 milestone/system-scope assertions — should I add one, or does per-feature coverage already satisfy this?" and get an explicit answer before Checkpoint 2 can be marked confirmed.
 6. Once C is confirmed, it is FROZEN and cannot be reshaped by implementation
 7. **Update state.json**: `phase: C_CONFIRMED`, `frozen: ["02", "03"]`
 
@@ -180,11 +202,14 @@ Create `.agent/tasks/{task-id}/` with:
 - `03-validation-contract.md` (C) — FROZEN after confirmation
 - `04-features-and-milestones.md` (plan) — FROZEN after confirmation
 - `05-audit-log.md` (A) — append-only
-- `06-memory.md` (M) — mutable
+- `06-memory.md` (M) — mutable, using `references/memory-template.md` (`Scope: task`)
 - `state.json` — **single source of truth for execution state**
 - `milestones/` directory with per-milestone subdirectories:
-  - `M-{n}/plan.md`, `M-{n}/progress.md`, `M-{n}/findings.md`, `M-{n}/verification.md`, `M-{n}/reflection.md`
-- `.agent/memory.md` (project-level shared memory)
+  - `M-{n}/plan.md` (using `references/plan-template.md`)
+  - `M-{n}/progress.md` (using `references/progress-template.md`), `M-{n}/findings.md` (using `references/findings-template.md`) — both intentionally lightweight working notes, not audit evidence; cleared/superseded freely, unlike verification records
+  - `M-{n}/verification-F{j}.md` per feature, and `M-{n}/integration-verification.md` if the milestone has any `Scope: milestone`/`Scope: system` assertions — **both use `references/verification-template.md`**, which has a `Scope` field distinguishing the two; there is no separate `verification.md` format
+  - `M-{n}/reflection.md` (using `references/reflection-template.md`)
+- `.agent/memory.md` (project-level shared memory, using `references/memory-template.md`, `Scope: project` — pre-loaded by O/W/V before acting, see Memory Pre-Load Rule)
 
 ### state.json Schema (v1)
 ```json
@@ -223,20 +248,21 @@ For each Milestone M-i from 1 to m:
 
 ### M-i.1 O: Milestone Kickoff
 1. Read frozen S and C
-2. Read project-level `.agent/memory.md`
+2. Read project-level `.agent/memory.md` and this task's own `06-memory.md` (empty on M-1, accumulating from M-2 onward)
 3. Select Features belonging to M-i
-4. Write M-i execution plan to `milestones/M-i/plan.md`
-5. Initialize Loop Guard counters in `milestones/M-i/plan.md`:
+4. **Identify obligations**: scan C for every `Scope: milestone`/`Scope: system` assertion whose `Covered by Features` includes any Feature in M-i (even if not ALL covering features are in M-i — note it as "partial, completes in M-{later}")
+5. Write M-i execution plan to `milestones/M-i/plan.md`, including the obligations from step 4 — this must be visible from kickoff, not discovered for the first time at the Gate
+6. Initialize Loop Guard counters in `milestones/M-i/plan.md`:
    - `planning_adjustments: 0 / 3`
    - `global_iteration: {current} / 50`
-6. **Update state.json**:
+7. **Update state.json**:
    - `status: RUNNING`
    - `phase: MILESTONE_{i}`
    - `current_milestone: M-{i}`
    - `last_role: O`
    - `last_action: PLAN`
    - `last_result: OK`
-7. Append to Audit Log: milestone start, features in scope, expected convergence k
+8. Append to Audit Log: milestone start, features in scope, expected convergence k, integration/system obligations noted
 
 ### M-i.2 Feature Execution Loop (k iterations per Feature)
 
@@ -248,8 +274,18 @@ For each Feature F-j in M-i (in dependency order):
    - Frozen S and C (relevant assertions only)
    - Previous Handoff (H) if any
    - Shared state files (services.yaml, AGENTS.md if they exist)
+   - Task-level `06-memory.md` and project-level `.agent/memory.md`, filtered per the Memory
+     Pre-Load Rule below — this is curated, distilled experience, not another role's reasoning
+     trace, so it does not violate rule 2 below
 2. W does NOT read previous worker trajectory, chat history, or implementation details of other features
-3. Implement the feature
+3. **Implementation step** — read `tdd_required` for this feature from frozen S's Verification Requirements:
+   - **If `tdd_required: true`**: TDD cycle, in this exact order —
+     a. Write tests first, covering every `Scope: feature` assertion `Covered by` this Feature
+     b. Run tests — expect and confirm failure (RED). Record this failing run in Commands Executed (step 4's table) — a Handoff with no RED entry when `tdd_required: true` is invalid, same status as a missing commit hash.
+     c. Write implementation
+     d. Run tests — expect and confirm pass (GREEN)
+     e. Refactor if needed, re-run tests after refactor
+   - **If `tdd_required: false`**: implement the feature; tests may be written alongside or after, per project convention — no RED-before-GREEN evidence is required in Handoff
 4. Run local checks (lint, type-check, unit tests for this feature only)
 5. **Cm: Commit / Snapshot**
    - `git add` and `git commit` with message: `[task-{id}] F-{j}: {feature name}`
@@ -261,7 +297,8 @@ For each Feature F-j in M-i (in dependency order):
    - `last_role: W`
    - `last_action: IMPLEMENT`
    - `last_result: OK`
-   - `budget.files_modified += count`
+   - `budget.files_modified += count`, `budget.tool_calls += count-this-step`
+   - **Check budget**: if `budget.files_modified >= budget.files_max` OR `budget.tool_calls >= budget.tool_calls_max`, trigger the Loop Guardrails budget response now (don't wait for Milestone Gate to notice) — append the LOOP_GUARD audit entry immediately and flag conservative mode for O's next planning decision
 
 #### H: Structured Handoff
 W MUST produce `milestones/M-i/handoff-F{j}.md` with exact sections:
@@ -280,13 +317,15 @@ W MUST produce `milestones/M-i/handoff-F{j}.md` with exact sections:
 | {cmd} | {code} | {summary} |
 
 ## Issues / Blockers
-- {any problems encountered}
+- {any problems encountered — if something looks like it could recur beyond this feature, tag it
+  `[MEMORY-CANDIDATE: type/category/severity]`, see `references/memory-template.md`}
 
 ## Compliance Check
 - [ ] Followed spec S requirement {X}
 - [ ] Covered assertion ASSERT-{Y}
 - [ ] Committed at {hash}
 - [ ] Local checks passed
+- [ ] If `tdd_required`: Commands Executed above includes a failing (RED) run before the passing (GREEN) run — N/A if `tdd_required: false`
 
 ## Next Worker Notes
 - {context the next worker needs}
@@ -305,19 +344,42 @@ Worker: W-{id}
    - Frozen Validation Contract C (assertions relevant to F-j)
    - Committed artifact at Cm hash (checkout or read snapshot)
    - Handoff H (for context, not for leniency)
+   - Task-level `06-memory.md` and project-level `.agent/memory.md`, filtered per the Memory
+     Pre-Load Rule below — apply stricter scrutiny to anything matching a recorded anti-pattern
    - V does NOT read worker trajectory, chat history, or implementation reasoning
 2. Execute validation per assertion:
    - Scrutiny validation: lint, type-check, test suite, code review against contract
    - If applicable: user-testing validation (UI/E2E via screenshots or manual steps)
-3. Record results in `milestones/M-i/verification-F{j}.md`:
-   - Per-assertion status: PASS / PARTIAL / FAIL
-   - Evidence collected
-   - Issues found (blocking vs non-blocking vs suggestion)
+3. Record results in `milestones/M-i/verification-F{j}.md` using `references/verification-template.md` (`Scope: feature`):
+   - Per-assertion status: PASS / PARTIAL / FAIL — itemized, one row per assertion, not aggregated by severity
+   - Actual command + actual output per check run (evidence, not a self-reported checkbox)
+   - Issues found (blocking vs non-blocking vs suggestion) — if an issue looks like it could recur
+     beyond this one feature, tag its description `[MEMORY-CANDIDATE: type/category/severity]` (see
+     `references/memory-template.md`'s Candidate Capture)
 4. **Self-Evaluation Bias Prevention**: V's verdict is final; W cannot dispute it
 5. **Update state.json**:
    - `last_role: V`
    - `last_action: VALIDATE`
    - `last_result: PASS | PARTIAL | FAIL`
+
+### Memory Pre-Load Rule (for W and V, referenced above)
+Before acting, the active role reads BOTH:
+- `06-memory.md` (this task's own accumulated candidates so far — a critical issue found in M-1 must
+  inform M-2's Worker/Validator in the SAME task; waiting for Phase 5's promotion to project-level
+  memory would be too late)
+- `.agent/memory.md`'s Quick Index (project-level, cross-task, mature entries)
+
+Filtered by:
+- **W** → categories `tdd`, `architecture`, `domain-specific` matching this feature; entries with
+  `Applies To` including W
+- **V** → categories `integration`, `workflow`, `domain-specific` matching this feature/assertion;
+  entries with `Applies To` including V — this is what "apply stricter checks for previously missed
+  issue types" actually means in practice, not just a stated intention
+- Read the full entry (not just the Quick Index row) for any match before proceeding
+- This does not replace or weaken the Fresh Context Rule — memory entries are curated, role-agnostic
+  lessons (the "Prevention / Reuse" line is the payoff), not another role's live reasoning about THIS
+  task. Reading one is not reading the other.
+- If no entry matches, proceed normally — most features won't have a relevant memory hit, that's expected
 
 #### F: Fix Feature Generation (by O, not W)
 1. If V reports FAIL or PARTIAL with blocking issues:
@@ -360,20 +422,37 @@ Worker: W-{id}
 
 ### M-i.3 Milestone Gate
 Before proceeding to M-(i+1):
-1. O reviews all verifications in M-i
-2. O increments `global_iteration` counter in state.json
-3. If `global_iteration >= 50`:
+1. **Integration/System Verification** (new, mandatory if applicable — this runs BEFORE the review in step 2, not folded silently into it):
+   - Check C for any `Scope: milestone` or `Scope: system` assertion whose `Covered by Features` are ALL now PASS or accepted-PARTIAL
+   - If none exist and S's Verification Requirements had `integration_test_required: false` and `system_test_required: false` → skip, note "N/A — not required per S" in `milestones/M-i/integration-verification.md`, proceed to step 2
+   - If such assertions exist → run this as a **Fresh Context** pass (same isolation rule as per-feature V, but scoped to the milestone's current full state, not one feature's commit):
+     a. Read: the milestone/system-scope assertions due, and the current combined state of every Feature they cover (not a single Cm diff — check out or read the full current branch/working tree state)
+     b. **Execute the actual integration/system test** — if the project has one (e.g. `npm run test:integration`, `pytest tests/integration/`, a defined manual E2E script), run it for real and capture output
+     c. **If no such test exists in the project**: do NOT mark PASS. Record explicitly: "FAIL-NO-INFRASTRUCTURE — no integration/system test exists to check ASSERT-{n}; cannot verify" and route to Fix Feature generation (step below) or Human Checkpoint 4, same as any other FAIL. Fabricating a PASS here is the single most severe violation this framework can commit — see Critical Constraints.
+     d. Record results in `milestones/M-i/integration-verification.md` using `references/verification-template.md` (`Scope: milestone` or `system`) — same itemized, evidence-based structure as per-feature verification
+   - If FAIL: O generates a Fix Feature exactly as in the per-Feature F step (fix depth counter shared with the relevant features, capped the same way at 3); this is not exempt from the fix-depth/k_max guardrails
+   - **Update state.json**: `last_role: V`, `last_action: VALIDATE`, `last_result: PASS | PARTIAL | FAIL`
+2. O reviews all verifications in M-i, including the integration/system record from step 1
+3. **Memory sweep**: O collects every `[MEMORY-CANDIDATE: type/category/severity]` tag from this
+   milestone's Handoffs and verification records, and writes/updates the corresponding entries in
+   `milestones/M-i/reflection.md`'s memory section (create the entry if new, increment Occurrences if
+   it matches an existing one from earlier in this task) — then merges those into `06-memory.md`
+   (`references/memory-template.md`, `Scope: task`). A tagged candidate that never gets swept here is
+   silently lost — this step is not optional even if there are zero tags this milestone (say so explicitly)
+4. O increments `global_iteration` counter in state.json
+5. If `global_iteration >= 50`:
    - O triggers **Graceful Termination** (see Phase 6)
    - O outputs all completed deliverables
    - O does NOT proceed to M-(i+1)
    - **Update state.json**: `status: COMPLETED`, `phase: GRACEFUL_TERMINATION`
-4. **HUMAN CHECKPOINT 4** (if any FAIL or PARTIAL remains AND human intervention is explicitly requested by user):
+6. **HUMAN CHECKPOINT 4** (if any FAIL or PARTIAL remains, INCLUDING a FAIL-NO-INFRASTRUCTURE from step 1, AND human intervention is explicitly requested by user):
    - Present: milestone status, remaining issues, proposed fix plan
-   - Phrase: "Milestone {i} has N open issues. Proceed with fixes, or accept partial and continue?"
+   - Phrase: "Milestone {i} has N open issues (including {k} integration/system-level). Proceed with fixes, or accept partial and continue?"
    - Note: O auto-downgrades by default; human checkpoint is optional override
-5. If human says "accept partial", record technical debt in `06-memory.md`
-6. O appends Milestone completion summary to Audit Log
-7. **Update state.json**:
+7. If human says "accept partial", record technical debt in `06-memory.md`, **explicitly naming which milestone/system-scope assertions were accepted as unverified** — a generic "accepted partial" entry with no assertion IDs is not sufficient
+8. `completed_milestones` may NOT be appended while any `Scope: milestone` or `Scope: system` assertion due this milestone (i.e. all its `Covered by Features` are in M-i or earlier) is unresolved (no PASS, no explicit human-accepted PARTIAL/FAIL-NO-INFRASTRUCTURE) — this is a hard gate, not a review formality
+9. O appends Milestone completion summary to Audit Log
+10. **Update state.json**:
    - `completed_milestones: append M-{i}`
    - `completed_features: append all features in M-{i}`
    - `last_role: O`
@@ -393,14 +472,16 @@ Format per entry:
 | Timestamp | Role | Action | Target | Input | Output | Decision | Human |
 |-----------|------|--------|--------|-------|--------|----------|-------|
 | {ISO} | O | PLAN | M-1 | S+C | 3 features | waterfall chosen | - |
-| {ISO} | W-1 | IMPLEMENT | F-1 | spec+handoff | code+tests | TDD approach | - |
+| {ISO} | W-1 | IMPLEMENT | F-1 | spec+handoff | code+tests | tdd_required=true: RED then GREEN | - |
+| {ISO} | W-2 | IMPLEMENT | F-2 | spec+handoff | code+tests | tdd_required=false: tests alongside impl | - |
 | {ISO} | W-1 | COMMIT | F-1 | - | hash: abc123 | snapshot frozen | - |
 | {ISO} | W-1 | HANDOFF | F-1 | - | handoff-F1.md | 2 issues noted | - |
-| {ISO} | V-1 | VALIDATE | F-1 | C+Cm | 2 FAIL | fresh context eval | - |
+| {ISO} | V-1 | VALIDATE | F-1 | C+Cm | 2 FAIL | fresh context eval, Scope: feature | - |
 | {ISO} | O | GENERATE_FIX | F-fix-1 | V report | fix spec | root cause: race cond | - |
 | {ISO} | O | LOOP_GUARD | F-1 | fix depth=3 | auto-downgrade | depth limit reached | - |
 | {ISO} | O | LOOP_GUARD | F-2 | k=5 | auto-downgrade | k_max reached | - |
 | {ISO} | O | LOOP_GUARD | M-2 | planning=3 | freeze plan | plan limit | - |
+| {ISO} | V-1 | VALIDATE | M-2 | C (system-scope)+full state | 1 PASS, 1 FAIL-NO-INFRASTRUCTURE | ASSERT-005: no integration test exists, cannot verify — routed to fix | - |
 | {ISO} | O | RESUME | task-123 | state.json | phase=M-2/F-3 | restored context | - |
 | {ISO} | HUMAN | OVERRIDE | ASSERT-003 | "too strict" | relaxed | user request | YES |
 ```
@@ -410,6 +491,7 @@ Rules:
 - Every git commit, every handoff, every validation must generate an audit entry
 - **Loop Guard events must generate explicit audit entries** (auto-downgrade, strategy switch, graceful termination)
 - **Resume events must generate explicit audit entries** with full state snapshot
+- **A `Scope: milestone`/`Scope: system` VALIDATE entry with Decision = PASS must show what command was actually run** — a PASS with no command/output in Input or Decision is presumed fabricated and must be treated as FAIL-NO-INFRASTRUCTURE until re-verified with real evidence
 - If human intervenes, record the exact command/prompt and O's response
 - Project-level `.agent/audit-log.md` accumulates cross-task entries for trend analysis
 
@@ -418,9 +500,9 @@ Rules:
 ## Phase 5: Memory & Final Delivery (M)
 
 1. Cross-task memory merge:
-   - Extract reusable patterns from `06-memory.md` into `.agent/templates/decomposition/{task-type}.md`
-   - Extract anti-patterns into `.agent/templates/anti-patterns.md`
-   - Extract assertion templates into `.agent/templates/contracts/{domain}.md`
+   - Apply `references/memory-template.md`'s Promotion Rule to every entry in `06-memory.md`: critical → promote to `.agent/memory.md` immediately; major/minor → promote only if occurrences >= 2 this task, or increment a matching existing project-level entry
+   - Extract reusable decomposition templates (task type → standard split/milestones/typical fix depth) into `.agent/templates/decomposition/{task-type}.md` — this is planning-shape knowledge, distinct from the pattern/anti-pattern/fix lessons that live in `.agent/memory.md`
+   - Extract reusable assertion templates into `.agent/templates/contracts/{domain}.md`
 2. Archive:
    - Keep: U, S, C, final plan, all handoffs, all verifications, audit log, memory, state.json
    - Optional cleanup: per-milestone working drafts (progress.md, findings.md) if storage is tight
@@ -429,7 +511,8 @@ Rules:
    - Milestones completed: m_actual / m_planned
    - Convergence stats: avg k per milestone, total fix features, fix ratio, auto-downgrades triggered
    - Loop Guard events: fix depth limits, k_max reached, global iterations consumed
-   - Assertion coverage: X/Y assertions fully satisfied
+   - Assertion coverage: X/Y assertions fully satisfied, broken out by Scope — feature-level X1/Y1, milestone-level X2/Y2, system-level X3/Y3 (never collapse these into one number; a 100% feature-level score with 0 milestone/system-level assertions checked is not "100% coverage")
+   - **Any FAIL-NO-INFRASTRUCTURE entries**, named explicitly with the assertion ID and what would need to exist to actually check them
    - Audit summary: total actions, human interventions, token/effort estimate
    - Known limitations & technical debt
    - Reusable templates generated
@@ -445,7 +528,7 @@ When `global_iteration >= 50` or all milestones completed:
 2. O assembles all completed Cm snapshots into a coherent deliverable
 3. O marks all uncompleted features as ABANDONED with reason (iteration limit / milestone skipped)
 4. O generates final Audit Log summary
-5. O merges Memory to project-level `.agent/memory.md`
+5. O merges Memory to project-level `.agent/memory.md`, applying `references/memory-template.md`'s Promotion Rule exactly as in Phase 5 step 1 — a forced/partial termination is not an excuse to skip this
 6. O presents Final Delivery Report to user
 7. **Update state.json**: `status: COMPLETED`, `phase: GRACEFUL_TERMINATION`
 8. Task state: COMPLETED (even if partial)
@@ -488,6 +571,8 @@ Humans are NOT interrupted unless the system is completely stalled (10-min rule)
 | Fix depth >= 3 for same Feature | O marks PARTIAL, records debt, **proceeds** | No |
 | Single Feature k >= 5 | O downgrades criteria, records debt, **proceeds to next Feature** | No |
 | Planning adjustments >= 3 for same Milestone | O freezes plan, executes "imperfect but runnable" version | No |
+| `budget.files_modified >= budget.files_max` | O switches to conservative mode (critical-path features only for remaining plan), records skipped features as debt, **proceeds** | No (same response as human-triggered "Budget exhausted", just auto-fired) |
+| `budget.tool_calls >= budget.tool_calls_max` | Same as above — conservative mode, records debt, **proceeds** | No |
 | Global iteration n >= 50 | O triggers **Graceful Termination**, outputs best deliverable | No (reported at end) |
 | Same root cause fails >= 2 consecutive times | O **must switch strategy** (Never Repeat Failures) | No |
 | Zero progress for 10 minutes | O reports stall to user, **requests human intervention** | **Yes** |
@@ -507,6 +592,9 @@ Humans are NOT interrupted unless the system is completely stalled (10-min rule)
 | **No Direct Communication** | W and V must not chat peer-to-peer; all state via files + O |
 | **Serial Write** | Only one W writes at a time; no parallel file modifications |
 | **Cm Before H** | Handoff without a commit hash is invalid; V must reject |
+| **TDD Order** | If `tdd_required: true` for a Feature, Handoff without a recorded RED (failing) run before the GREEN (passing) run is invalid; V must reject same as a missing commit hash |
+| **No Fabricated Integration/System Verification** | A `Scope: milestone`/`Scope: system` PASS with no real command+output evidence is treated as fabrication, not merely FAIL — it is the single most severe violation this framework defines, because it defeats the entire audit trail's purpose |
+| **Integration/System Gate** | `completed_milestones` cannot be appended while any `Scope: milestone` assertion covered by that milestone lacks a PASS or explicit human-accepted PARTIAL/FAIL-NO-INFRASTRUCTURE |
 | **Fresh Context for W** | W must not read previous trajectory; only spec + handoff + shared state |
 | **Fresh Context for V** | V must not read worker trajectory; only C + committed artifact |
 | **V Never Self-Corrects** | If V finds issues, O generates F; W does not self-patch after V |
@@ -532,7 +620,7 @@ Humans act as project managers, not code editors. Minimum intervention unit is p
 | Worker stuck | "Mark F-X complete and move on" | O accepts partial, records debt, proceeds |
 | Direction change | "Drop X, add Y" | O replans remaining milestones, preserves completed Cm |
 | Validation dispute | "Override V on ASSERT-Z" | Human can override with explicit audit entry; O adjusts contract |
-| Budget exhausted | "Prepare MVP delivery" | O switches to conservative mode: only critical path features |
+| Budget exhausted (auto-detected, see Loop Guardrails) or "Prepare MVP delivery" | Optional — O already auto-switches to conservative mode when `files_max`/`tool_calls_max` is hit; human instruction just accelerates/confirms it early | O switches to conservative mode: only critical path features |
 | **System stall (10 min)** | Any instruction | O reports stall cause, awaits human decision |
 | **Suspend request** | "Pause here" | O finishes current step, writes SUSPEND state, reports resume command |
 | **Resume request** | "Continue task-{id}" | O reads state.json, verifies consistency, resumes exact phase |
@@ -546,5 +634,6 @@ Humans act as project managers, not code editors. Minimum intervention unit is p
 - Task topology: Mermaid or indented lists in plan.md
 - Audit: pipe-delimited table (machine-parseable)
 - Handoff: exact 6-section format (mandatory)
+- Verification (per-feature and integration/system): `references/verification-template.md`, itemized per assertion, evidence not checkboxes
 - Loop Guard: every auto-downgrade must be recorded in both reflection.md and audit-log.md
 - State: JSON, updated after every action, read before every action

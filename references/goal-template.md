@@ -31,12 +31,19 @@
 - {Security: auth required}
 - {Compatibility: no breaking changes}
 
+### Verification Requirements
+<!-- See SKILL.md §1.2 for the full rule, including the mandatory trigger check for
+     "end-to-end/整体/流程/workflow"-type language in the requirements above. -->
+- **TDD required**: {yes/no} — {if yes: which features}
+- **Integration test required**: {yes/no} — {if yes: which feature boundaries, e.g. "F-cart + F-payment + F-order, once all three individually PASS"}
+- **System test required**: {yes/no} — {if yes: what "the whole system" means for this task}
+
 ### Assumptions & Dependencies
 - {assumption 1}
 - {external dependency 1}
 
 ### Human Confirmation
-- [ ] I confirm this spec accurately represents my intent
+- [ ] I confirm this spec accurately represents my intent, including what will and won't get an integration/system-level check
 - Confirmed by: {user}
 - Date: {timestamp}
 
@@ -44,13 +51,22 @@
 
 ## 03 Validation Contract (C) — Human Spot-Check Layer 2
 
+### Contract Metadata
+- Task ID: {id}
+- Frozen: {timestamp} — DO NOT MODIFY AFTER FREEZE
+- Maps to Spec: S-{version}
+
 ### Assertion Coverage Matrix
-| Spec Req | Assertion ID | Status |
-|----------|-------------|--------|
-| FR-1 | ASSERT-001 | drafted |
-| FR-2 | ASSERT-002 | drafted |
+<!-- Canonical columns — see SKILL.md §1.3. An assertion covering 2+ features must be
+     Scope: milestone or system, never feature. -->
+| Spec Req | Assertion ID | Scope | Covered by Features | Verification Timing | Status |
+|----------|-------------|-------|---------------------|---------------------|--------|
+| FR-1 | ASSERT-001 | feature | F-1 | Worker step 4, per-commit | drafted |
+| FR-3 | ASSERT-002 | system | F-2, F-5 | Milestone Gate, after both PASS | drafted |
 
 ### Assertions
+<!-- This format is canonical in SKILL.md §1.3 — this block is a filled example, not a
+     second definition. If the two ever disagree, SKILL.md §1.3 wins. -->
 ```
 ### ASSERT-001: {Behavior}
 - Trigger: {precondition}
@@ -59,10 +75,15 @@
 - Tool: {verification tool}
 - Evidence: {evidence type}
 - Maps to Spec: FR-1
+- Scope: feature
+- Covered by Features: F-1
+- Verification Timing: Worker step 4, per-commit
 ```
 
 ### Human Spot-Check
 - [ ] Assertions look correct and complete
+- [ ] Every assertion covering 2+ features is marked Scope: milestone or system, not feature
+- [ ] If S's Verification Requirements named an integration/system need, at least one Scope: milestone/system assertion exists for it (or O explicitly justified why not)
 - Checked by: {user}
 - Date: {timestamp}
 

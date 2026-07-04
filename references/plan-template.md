@@ -12,6 +12,12 @@
 F-x → F-y
 ```
 
+## Integration/System Obligations
+<!-- From C: every Scope: milestone/system assertion touching a Feature in this milestone. -->
+| Assertion ID | Scope | Covered by Features | Status |
+|-------------|-------|---------------------|--------|
+| ASSERT-{n} | milestone/system | F-{x}, F-{y} | pending / partial (completes in M-{later}) / done |
+
 ## Current Feature: F-{current}
 ## Iteration: {k} / 5
 
