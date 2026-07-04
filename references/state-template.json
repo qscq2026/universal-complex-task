@@ -1,0 +1,29 @@
+# state.json — Single Source of Truth for Execution State
+# This file is updated by O after EVERY action. It is read before EVERY action.
+# NEVER edit this file manually. NEVER infer state from other files.
+
+{
+  "task_id": "task-{timestamp}",
+  "status": "INIT",
+  "phase": "U_PARSED",
+  "current_milestone": null,
+  "current_feature": null,
+  "current_iteration": 0,
+  "fix_depth": 0,
+  "global_iteration": 0,
+  "planning_adjustments": 0,
+  "completed_milestones": [],
+  "completed_features": [],
+  "pending_features": [],
+  "frozen_files": [],
+  "last_role": "O",
+  "last_action": "INIT",
+  "last_result": "OK",
+  "last_timestamp": "{ISO8601}",
+  "budget": {
+    "files_modified": 0,
+    "files_max": 100,
+    "tool_calls": 0,
+    "tool_calls_max": 200
+  }
+}
