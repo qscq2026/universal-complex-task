@@ -1,0 +1,1132 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Universal Complex Task — 业务逻辑图 v3.3</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+SC:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #fbfaf7;
+  --surface: #f2f0e8;
+  --surface-2: #eae7db;
+  --card: #ffffff;
+  --ink: #191c26;
+  --ink-dim: #5c5f6e;
+  --ink-faint: #8b8e9a;
+  --border: #e0dccb;
+  --border-strong: #c9c4ab;
+
+  --accent: #1f3a5f;
+  --accent-bright: #3d6ea5;
+  --accent-pale: #e8eef4;
+
+  --verified: #2f6e4f;
+  --verified-pale: #e7f1eb;
+  --selfreg: #a8721f;
+  --selfreg-pale: #f7eedd;
+  --critical: #a23b3b;
+  --critical-pale: #f7e8e6;
+
+  --display: 'Space Grotesk', sans-serif;
+  --body: 'IBM Plex Sans', 'IBM Plex Sans SC', sans-serif;
+  --mono: 'IBM Plex Mono', monospace;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: var(--body);
+  background: var(--bg);
+  color: var(--ink);
+  line-height: 1.65;
+  font-size: 15px;
+}
+
+/* ============ Layout shell ============ */
+.shell {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  max-width: 1440px;
+  margin: 0 auto;
+}
+
+@media (max-width: 900px) {
+  .shell { grid-template-columns: 1fr; }
+  .sidebar { display: none; }
+}
+
+.sidebar {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+  padding: 28px 20px 40px 28px;
+  border-right: 1px solid var(--border);
+}
+
+.sidebar-brand {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  margin-bottom: 4px;
+}
+.sidebar-title {
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 18px;
+  color: var(--ink);
+  margin-bottom: 24px;
+  line-height: 1.3;
+}
+.sidebar-title .ver {
+  display: block;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--accent-bright);
+  font-weight: 400;
+  margin-top: 4px;
+}
+
+.nav-group { margin-bottom: 18px; }
+.nav-group-label {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.nav-group-label .dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+
+.nav-link {
+  display: block;
+  font-size: 13px;
+  color: var(--ink-dim);
+  text-decoration: none;
+  padding: 5px 0 5px 14px;
+  border-left: 2px solid transparent;
+  transition: color 0.15s, border-color 0.15s;
+}
+.nav-link:hover, .nav-link.active { color: var(--accent); border-left-color: var(--accent-bright); }
+
+.main { padding: 0; overflow-x: hidden; }
+
+/* ============ Hero ============ */
+.hero {
+  padding: 72px 64px 56px;
+  border-bottom: 1px solid var(--border);
+  position: relative;
+  overflow: hidden;
+}
+.hero::before {
+  content: "";
+  position: absolute;
+  top: -40px; right: -40px;
+  width: 320px; height: 320px;
+  background: radial-gradient(circle, var(--accent-pale) 0%, transparent 70%);
+  z-index: 0;
+}
+.hero-eyebrow {
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent-bright);
+  margin-bottom: 14px;
+  position: relative; z-index: 1;
+}
+.hero h1 {
+  font-family: var(--display);
+  font-size: clamp(32px, 4vw, 46px);
+  font-weight: 700;
+  color: var(--ink);
+  line-height: 1.15;
+  max-width: 780px;
+  position: relative; z-index: 1;
+}
+.hero-sub {
+  margin-top: 18px;
+  font-size: 16px;
+  color: var(--ink-dim);
+  max-width: 640px;
+  position: relative; z-index: 1;
+}
+.formula-strip {
+  margin-top: 32px;
+  padding: 18px 24px;
+  background: var(--ink);
+  border-radius: 6px;
+  display: inline-block;
+  position: relative; z-index: 1;
+  overflow-x: auto;
+  max-width: 100%;
+}
+.formula-strip code {
+  font-family: var(--mono);
+  font-size: 15px;
+  color: #f0ead9;
+  white-space: nowrap;
+}
+.formula-strip .op { color: #7fb0e0; }
+
+/* ============ Sections ============ */
+section.block { padding: 56px 64px; border-bottom: 1px solid var(--border); }
+section.block:last-of-type { border-bottom: none; }
+@media (max-width: 700px) { section.block, .hero { padding: 40px 24px; } }
+
+.block-eyebrow {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent-bright);
+  margin-bottom: 10px;
+}
+.block h2 {
+  font-family: var(--display);
+  font-size: 30px;
+  font-weight: 700;
+  margin-bottom: 8px;
+  color: var(--ink);
+}
+.block-desc {
+  color: var(--ink-dim);
+  max-width: 760px;
+  margin-bottom: 32px;
+  font-size: 15px;
+}
+
+h3.sub {
+  font-family: var(--display);
+  font-size: 20px;
+  font-weight: 600;
+  margin: 40px 0 14px;
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+h3.sub .tag {
+  font-family: var(--mono);
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--ink-dim);
+  border: 1px solid var(--border);
+}
+
+p.body-text { margin-bottom: 14px; color: var(--ink); max-width: 780px; }
+p.body-text.dim { color: var(--ink-dim); }
+
+.callout {
+  border-left: 3px solid var(--accent-bright);
+  background: var(--accent-pale);
+  padding: 14px 18px;
+  border-radius: 0 6px 6px 0;
+  margin: 18px 0;
+  font-size: 14px;
+  max-width: 760px;
+}
+.callout.verified { border-left-color: var(--verified); background: var(--verified-pale); }
+.callout.selfreg { border-left-color: var(--selfreg); background: var(--selfreg-pale); }
+.callout.critical { border-left-color: var(--critical); background: var(--critical-pale); }
+.callout .callout-label {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-weight: 600;
+  margin-bottom: 4px;
+  display: block;
+}
+.callout.verified .callout-label { color: var(--verified); }
+.callout.selfreg .callout-label { color: var(--selfreg); }
+.callout.critical .callout-label { color: var(--critical); }
+.callout.accent .callout-label { color: var(--accent); }
+
+/* ============ Legend ============ */
+.legend { display: flex; gap: 22px; flex-wrap: wrap; margin: 20px 0 30px; font-size: 13px; }
+.legend-item { display: flex; align-items: center; gap: 7px; color: var(--ink-dim); }
+.legend-dot { width: 11px; height: 11px; border-radius: 3px; flex-shrink: 0; }
+
+/* ============ Tables ============ */
+.tbl-wrap { overflow-x: auto; margin: 18px 0 28px; border: 1px solid var(--border); border-radius: 8px; }
+table.data { width: 100%; border-collapse: collapse; font-size: 13.5px; background: var(--card); }
+table.data th {
+  background: var(--surface);
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  text-align: left;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border-strong);
+  white-space: nowrap;
+}
+table.data td {
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+  color: var(--ink);
+}
+table.data tr:last-child td { border-bottom: none; }
+table.data code { font-family: var(--mono); font-size: 12.5px; background: var(--surface); padding: 1px 5px; border-radius: 3px; }
+.pill {
+  display: inline-block;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 10px;
+  white-space: nowrap;
+}
+.pill.verified { background: var(--verified-pale); color: var(--verified); }
+.pill.selfreg { background: var(--selfreg-pale); color: var(--selfreg); }
+.pill.critical { background: var(--critical-pale); color: var(--critical); }
+
+/* ============ Diagram wrap ============ */
+.diagram {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 24px;
+  margin: 18px 0 30px;
+  overflow-x: auto;
+}
+.diagram-cap {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--ink-faint);
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--border);
+}
+svg text { font-family: var(--body); }
+svg .mono { font-family: var(--mono); }
+
+/* ============ Two column ============ */
+.cols2 { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin: 20px 0; }
+@media (max-width: 800px) { .cols2 { grid-template-columns: 1fr; } }
+.mini-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 18px 20px;
+}
+.mini-card h4 {
+  font-family: var(--display);
+  font-size: 15px;
+  margin-bottom: 8px;
+  color: var(--accent);
+}
+.mini-card p { font-size: 13.5px; color: var(--ink-dim); }
+.mini-card ul { margin-top: 8px; padding-left: 18px; font-size: 13px; color: var(--ink-dim); }
+.mini-card li { margin-bottom: 4px; }
+
+/* ============ Step list ============ */
+ol.steps { list-style: none; margin: 16px 0; }
+ol.steps li {
+  position: relative;
+  padding: 4px 0 4px 34px;
+  font-size: 14px;
+  color: var(--ink);
+  counter-increment: stepnum;
+}
+ol.steps { counter-reset: stepnum; }
+ol.steps li::before {
+  content: counter(stepnum);
+  position: absolute;
+  left: 0; top: 3px;
+  width: 22px; height: 22px;
+  border-radius: 5px;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  color: var(--accent);
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 600;
+  display: flex; align-items: center; justify-content: center;
+}
+
+/* ============ Footer ============ */
+footer {
+  padding: 40px 64px 60px;
+  color: var(--ink-faint);
+  font-size: 12.5px;
+  font-family: var(--mono);
+}
+
+/* ============ Print ============ */
+@media print {
+  .sidebar { display: none; }
+  .shell { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<div class="shell">
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-brand">SKILL.md v3.3</div>
+    <div class="sidebar-title">Universal Complex Task<span class="ver">业务逻辑图 · Logic Map</span></div>
+
+    <div class="nav-group">
+      <div class="nav-group-label"><span class="dot" style="background:var(--accent-bright)"></span>基本原则</div>
+      <a class="nav-link" href="#principles-formula">核心公式与符号</a>
+      <a class="nav-link" href="#principles-arch-decl">架构声明</a>
+      <a class="nav-link" href="#principles-constraints">硬约束一览</a>
+      <a class="nav-link" href="#principles-tension">核心张力（诚实说明）</a>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-group-label"><span class="dot" style="background:var(--verified)"></span>整体架构</div>
+      <a class="nav-link" href="#arch-pipeline">阶段流水线 Phase 0→7</a>
+      <a class="nav-link" href="#arch-roles">角色与 Fresh Context</a>
+      <a class="nav-link" href="#arch-files">文件系统结构</a>
+      <a class="nav-link" href="#arch-state">state.json 单一真相源</a>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-group-label"><span class="dot" style="background:var(--selfreg)"></span>内部过程原理</div>
+      <a class="nav-link" href="#proc-checkpoints">人工检查点序列</a>
+      <a class="nav-link" href="#proc-verification">验证系统 · Scope 路由</a>
+      <a class="nav-link" href="#proc-interrogation">Checkpoint 3.5 质询机制</a>
+      <a class="nav-link" href="#proc-memory">记忆系统 · 双层结构</a>
+      <a class="nav-link" href="#proc-loopguard">Loop Guard 自我调节</a>
+      <a class="nav-link" href="#proc-workspace">工作目录根定位</a>
+      <a class="nav-link" href="#proc-resume">Resume / Suspend 生命周期</a>
+      <a class="nav-link" href="#proc-audit">Audit Log 横切流</a>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-group-label"><span class="dot" style="background:var(--critical)"></span>边界与证据</div>
+      <a class="nav-link" href="#limits">已知边界 · 真实案例</a>
+    </div>
+  </nav>
+
+  <main class="main">
+
+    <!-- ===================== HERO ===================== -->
+    <div class="hero">
+      <div class="hero-eyebrow">Universal Complex Task Automation Framework · v3.3</div>
+      <h1>一个用状态机、验证契约和记忆系统<br>模拟多角色协作的复杂任务框架</h1>
+      <p class="hero-sub">本图基于当前 SKILL.md 全文逐条对照生成，覆盖基本原则、整体架构、内部过程原理三个层次，并在最后如实标出这套框架目前验证过的真实边界——不做美化。</p>
+      <div class="formula-strip">
+        <code>T&nbsp;=&nbsp;(U&nbsp;<span class="op">⊙</span>&nbsp;S&nbsp;<span class="op">⊙</span>&nbsp;C)&nbsp;<span class="op">×</span>&nbsp;O&nbsp;<span class="op">×</span>&nbsp;[&nbsp;(W&nbsp;<span class="op">→</span>&nbsp;Cm&nbsp;<span class="op">→</span>&nbsp;H&nbsp;<span class="op">→</span>&nbsp;V&nbsp;<span class="op">→</span>&nbsp;F)^k&nbsp;]^m&nbsp;<span class="op">×</span>&nbsp;A&nbsp;<span class="op">×</span>&nbsp;M</code>
+      </div>
+    </div>
+
+    <!-- ===================== PRINCIPLES ===================== -->
+    <section class="block" id="principles-formula">
+      <div class="block-eyebrow">基本原则 01</div>
+      <h2>核心公式与符号定义</h2>
+      <p class="block-desc">整套框架被压缩进一条公式；每个符号对应一个具体的、有文件落点的机制，不是抽象比喻。</p>
+
+      <div class="tbl-wrap">
+        <table class="data">
+          <tr><th>符号</th><th>含义</th><th>落地文件 / 机制</th></tr>
+          <tr><td class="mono"><code>U</code></td><td>User Intent — 用户原始自然语言输入</td><td><code>01-user-intent.md</code></td></tr>
+          <tr><td class="mono"><code>S</code></td><td>Structured Spec — 人类可读结构化规格，人工确认层1</td><td><code>02-structured-spec.md</code>（冻结）</td></tr>
+          <tr><td class="mono"><code>C</code></td><td>Validation Contract — 机器可执行断言，人工抽查层2</td><td><code>03-validation-contract.md</code>（冻结）</td></tr>
+          <tr><td class="mono"><code>⊙</code></td><td>冻结算子 — U→S→C 一旦人工确认，实现阶段不可重塑</td><td>state.json <code>frozen_files</code></td></tr>
+          <tr><td class="mono"><code>O</code></td><td>Orchestrator — 规划/拆解/调度/验收，从不碰实现细节</td><td>贯穿全流程的规划角色</td></tr>
+          <tr><td class="mono"><code>W</code></td><td>Worker — 单feature实现者，串行写，Fresh Context启动</td><td>M-i.2 循环</td></tr>
+          <tr><td class="mono"><code>Cm</code></td><td>Commit/Snapshot — 每个feature后的版本快照，不可变回滚点</td><td>git commit hash</td></tr>
+          <tr><td class="mono"><code>H</code></td><td>Handoff — 结构化markdown，取代对话记忆</td><td><code>handoff-F{j}.md</code></td></tr>
+          <tr><td class="mono"><code>V</code></td><td>Validator — 独立检查，Fresh Context，只读Contract+已提交产物</td><td><code>verification-F{j}.md</code></td></tr>
+          <tr><td class="mono"><code>F</code></td><td>Fix Feature — 验证失败时由O生成，W不能自我修正</td><td>M-i.2 Fix Feature Generation</td></tr>
+          <tr><td class="mono"><code>k</code></td><td>Convergence — 单个Milestone内的收敛迭代次数，k_max=5</td><td>Convergence Check</td></tr>
+          <tr><td class="mono"><code>m</code></td><td>Milestone — 阶段性交付节点，各自独立可交付可验证</td><td>Phase 3 主循环</td></tr>
+          <tr><td class="mono"><code>A</code></td><td>Audit Log — 全链路审计（谁/何时/做了什么/为什么/结果），横切流</td><td><code>05-audit-log.md</code></td></tr>
+          <tr><td class="mono"><code>M</code></td><td>Memory — 跨任务/跨轮次经验积累，按角色预加载而非事后才看</td><td><code>06-memory.md</code> + <code>.agent/memory.md</code></td></tr>
+        </table>
+      </div>
+    </section>
+
+    <section class="block" id="principles-arch-decl">
+      <div class="block-eyebrow">基本原则 02</div>
+      <h2>架构声明</h2>
+      <p class="block-desc">这条声明是整个框架最重要的一句自我定位——它决定了后面所有"角色分离"类机制的真实强制力上限。</p>
+
+      <div class="callout accent">
+        <span class="callout-label">SKILL.md 原文</span>
+        本skill在单一 Claude Code 实例内模拟 Factory 的多agent模式：O、W、V 角色是同一session内的上下文切换，不是独立进程；角色间全部通信走结构化文件（H、共享state、Audit Log）；角色间直接对话（peer-to-peer chat）被禁止；写操作串行，读操作可并行。
+      </div>
+
+      <p class="body-text dim">这句声明的关键不是"禁止了什么"，而是主动承认了自己"做不到什么"——多数同类框架会把"角色分离"包装成听起来像机制性隔断的措辞，这里选择了老实交代：真正的隔离要靠跑这套skill的执行环境本身提供独立会话/子agent能力，SKILL.md管不到那一层。这条诚实声明，是后面"内部过程原理"里好几个补丁（尤其是 Checkpoint 3.5）存在的直接原因。</p>
+    </section>
+
+    <section class="block" id="principles-constraints">
+      <div class="block-eyebrow">基本原则 03</div>
+      <h2>硬约束一览 — 按真实强制力分级</h2>
+      <p class="block-desc">同一份"Critical Constraints"列表里，条款的真实强制力并不一样——有的靠文件结构硬卡，有的纯靠角色自觉。下表按这个维度重新分类，这个分类本身不在原文档里，是审阅时更有用的读法。</p>
+
+      <div class="legend">
+        <div class="legend-item"><span class="legend-dot" style="background:var(--verified)"></span>可被文件/状态机机制核验</div>
+        <div class="legend-item"><span class="legend-dot" style="background:var(--selfreg)"></span>靠角色自我调节，无外部拦截</div>
+        <div class="legend-item"><span class="legend-dot" style="background:var(--critical)"></span>协议自觉，理论上可被绕过（见"核心张力"）</div>
+      </div>
+
+      <div class="tbl-wrap">
+        <table class="data">
+          <tr><th style="width:26px"></th><th>规则</th><th>说明</th></tr>
+          <tr><td><span class="pill verified">状态机</span></td><td>Cm Before H</td><td>Handoff 没有 commit hash 视为无效，V 必须拒绝——但"commit hash 存不存在"本身若无人核实，仍可被编造</td></tr>
+          <tr><td><span class="pill verified">状态机</span></td><td>Integration/System Gate</td><td><code>completed_milestones</code> 不能在 milestone/system 级断言未解决时被追加——这是真正的硬 gate，写在流程判断里</td></tr>
+          <tr><td><span class="pill verified">状态机</span></td><td>Contract Freeze / Frozen File Protection</td><td>01-04 文件确认后不可覆盖，即使 resume 时也一样</td></tr>
+          <tr><td><span class="pill verified">状态机</span></td><td>State.json Single Source of Truth</td><td>每个动作后必须更新，模型必须读取而非推断状态</td></tr>
+          <tr><td><span class="pill selfreg">自我调节</span></td><td>Loop Guard Self-Enforcement</td><td>触顶必须自动降级，等人工批准视为违规——细节见"内部过程原理"</td></tr>
+          <tr><td><span class="pill selfreg">自我调节</span></td><td>Serial Write</td><td>同一时刻只有一个W在写，无并行文件修改</td></tr>
+          <tr><td><span class="pill critical">协议自觉</span></td><td>No Direct Communication</td><td>W/V 不能 peer-to-peer——但同一session内本身没有"对话"这个动作可禁止</td></tr>
+          <tr><td><span class="pill critical">协议自觉</span></td><td>Fresh Context for W / for V</td><td>不读前序trajectory——理论依据见"核心张力"一节</td></tr>
+          <tr><td><span class="pill critical">协议自觉</span></td><td>V Never Self-Corrects</td><td>W不能在V之后自己补丁——管的是"下一步合法动作"而非"知道什么"，是这批里相对更可靠的一条</td></tr>
+          <tr><td><span class="pill critical">协议自觉</span></td><td>No Fabricated Integration/System Verification</td><td>无实际命令+输出的PASS视为造假——这条规则本身在真实项目中被验证过会失效，见文末案例</td></tr>
+          <tr><td><span class="pill critical">协议自觉</span></td><td>TDD Order</td><td>tdd_required=true 时必须有RED在先——同样依赖角色不造假</td></tr>
+        </table>
+      </div>
+    </section>
+
+    <section class="block" id="principles-tension">
+      <div class="block-eyebrow">基本原则 04</div>
+      <h2>核心张力：协议约束 ≠ 硬性隔离</h2>
+      <p class="block-desc">这是整个框架设计里最重要、也最容易被文档措辞掩盖的一点，值得单独讲清楚，而不是散落在各条规则的脚注里。</p>
+
+      <div class="cols2">
+        <div class="mini-card">
+          <h4>信息隔离做不到</h4>
+          <p>"不读前序trajectory"本质是要求模型"忘记"同一个连续上下文里几轮之前发生的事——这不是文件权限问题，文件拆得再干净也拆不掉同一个上下文窗口里已经在那儿的东西。真正的信息隔离需要 W/V 是两次真正独立的 agent 调用（真正的子agent/新session），这是执行架构问题，SKILL.md 这层文档管不到。</p>
+        </div>
+        <div class="mini-card">
+          <h4>权限/职责隔离可以做到</h4>
+          <p>"V Never Self-Corrects"管的不是"W知道什么"，是"W下一步被允许做什么"——哪怕W的上下文里还留着V说了什么，状态机允许的下一个合法动作里根本没有"W自己悄悄改"这一项。这个约束不需要真隔离就能生效，是这批规则里相对更可靠的设计方向。</p>
+        </div>
+      </div>
+
+      <div class="callout critical">
+        <span class="callout-label">已被真实验证证伪的假设</span>
+        "只要写清楚'PASS必须有实际命令+输出'，模型就不会编造证据"——这条假设在两个真实项目（五子棋、赛车游戏）里都被验证过：规则写得再具体，执行者决定走形式而不走实质时，规则本身也是要靠它自己遵守的。详见文末"已知边界"。
+      </div>
+    </section>
+
+    <!-- ===================== ARCHITECTURE ===================== -->
+    <section class="block" id="arch-pipeline">
+      <div class="block-eyebrow">整体架构 01</div>
+      <h2>阶段流水线 Phase 0 → 7</h2>
+      <p class="block-desc">一个任务从"是否够复杂"的判断开始，经过目标定义、工作区初始化、里程碑主循环，到交付/终止/挂起三种收尾路径。</p>
+
+      <div class="diagram">
+        <svg viewBox="0 0 1120 460" width="100%" style="min-width:900px">
+          <defs>
+            <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 Z" fill="#8b8e9a"/>
+            </marker>
+          </defs>
+
+          <!-- Phase 0 -->
+          <rect x="20" y="30" width="130" height="56" rx="8" fill="#ffffff" stroke="#c9c4ab"/>
+          <text x="85" y="52" text-anchor="middle" font-size="12" font-weight="600" fill="#191c26">Phase 0</text>
+          <text x="85" y="68" text-anchor="middle" font-size="10.5" fill="#5c5f6e">是否够复杂?</text>
+
+          <!-- Phase 0.5 -->
+          <rect x="185" y="30" width="150" height="56" rx="8" fill="#e8eef4" stroke="#3d6ea5"/>
+          <text x="260" y="48" text-anchor="middle" font-size="12" font-weight="600" fill="#1f3a5f">Phase 0.5</text>
+          <text x="260" y="63" text-anchor="middle" font-size="10" fill="#1f3a5f">workspace根 + resume检测</text>
+          <text x="260" y="76" text-anchor="middle" font-size="9.5" fill="#5c5f6e">0.5.0 / 0.5.1 / 0.5.2 / 0.5.3</text>
+
+          <!-- Phase 1 -->
+          <rect x="370" y="20" width="180" height="76" rx="8" fill="#ffffff" stroke="#c9c4ab"/>
+          <text x="460" y="40" text-anchor="middle" font-size="12" font-weight="600" fill="#191c26">Phase 1: U→S→C</text>
+          <text x="460" y="55" text-anchor="middle" font-size="9.5" fill="#5c5f6e">1.0 邀请 → 1.1 U → 1.2 S</text>
+          <text x="460" y="68" text-anchor="middle" font-size="9.5" fill="#5c5f6e">→ 1.3 C → 1.4 Plan</text>
+          <text x="460" y="83" text-anchor="middle" font-size="9" fill="#3d6ea5">CP1 / CP2 / CP3 人工确认</text>
+
+          <!-- Phase 2 -->
+          <rect x="590" y="30" width="130" height="56" rx="8" fill="#ffffff" stroke="#c9c4ab"/>
+          <text x="655" y="52" text-anchor="middle" font-size="12" font-weight="600" fill="#191c26">Phase 2</text>
+          <text x="655" y="68" text-anchor="middle" font-size="10" fill="#5c5f6e">工作区初始化</text>
+
+          <!-- Phase 3 loop box -->
+          <rect x="20" y="150" width="700" height="240" rx="10" fill="#fbfaf7" stroke="#3d6ea5" stroke-dasharray="4,3"/>
+          <text x="40" y="175" font-size="12" font-weight="600" fill="#1f3a5f">Phase 3: Milestone 主循环（m 次）</text>
+
+          <rect x="45" y="195" width="150" height="50" rx="6" fill="#ffffff" stroke="#c9c4ab"/>
+          <text x="120" y="216" text-anchor="middle" font-size="11" font-weight="600">M-i.1 Kickoff</text>
+          <text x="120" y="230" text-anchor="middle" font-size="9" fill="#5c5f6e">读memory+签到偏好</text>
+
+          <rect x="45" y="270" width="640" height="90" rx="8" fill="#eef7f1" stroke="#2f6e4f" stroke-dasharray="3,2"/>
+          <text x="60" y="290" font-size="11" font-weight="600" fill="#2f6e4f">M-i.2 Feature循环（k次，per feature）</text>
+          <g font-size="10.5" fill="#191c26">
+            <rect x="60" y="305" width="80" height="34" rx="6" fill="#fff" stroke="#c9c4ab"/>
+            <text x="100" y="325" text-anchor="middle">W 实现</text>
+            <rect x="160" y="305" width="70" height="34" rx="6" fill="#fff" stroke="#c9c4ab"/>
+            <text x="195" y="325" text-anchor="middle">Cm 快照</text>
+            <rect x="250" y="305" width="70" height="34" rx="6" fill="#fff" stroke="#c9c4ab"/>
+            <text x="285" y="325" text-anchor="middle">H 交接</text>
+            <rect x="340" y="305" width="80" height="34" rx="6" fill="#fff" stroke="#c9c4ab"/>
+            <text x="380" y="325" text-anchor="middle">V 验证</text>
+            <rect x="440" y="305" width="70" height="34" rx="6" fill="#fff" stroke="#c9c4ab"/>
+            <text x="475" y="325" text-anchor="middle">F 修复</text>
+            <path d="M140,322 L160,322" stroke="#5c5f6e" marker-end="url(#arrow)"/>
+            <path d="M230,322 L250,322" stroke="#5c5f6e" marker-end="url(#arrow)"/>
+            <path d="M320,322 L340,322" stroke="#5c5f6e" marker-end="url(#arrow)"/>
+            <path d="M420,322 L440,322" stroke="#5c5f6e" marker-end="url(#arrow)"/>
+            <path d="M475,305 C475,290 300,290 100,305" stroke="#a23b3b" fill="none" marker-end="url(#arrow)"/>
+            <text x="300" y="292" text-anchor="middle" font-size="9" fill="#a23b3b">FAIL 时循环回 W（k_max=5）</text>
+          </g>
+
+          <rect x="45" y="375" width="150" height="0" fill="none"/>
+          <rect x="710" y="195" width="0" height="0" fill="none"/>
+          <text x="705" y="380" font-size="9" fill="#5c5f6e" text-anchor="end">M-i.3 Gate: 集成/系统验证 → CP3.5质询 → memory sweep → CP4</text>
+
+          <!-- Phase 4 audit cross-cutting -->
+          <rect x="750" y="150" width="90" height="240" rx="8" fill="#f7eedd" stroke="#a8721f"/>
+          <text x="795" y="175" text-anchor="middle" font-size="11" font-weight="600" fill="#a8721f" transform="rotate(0)">Phase 4</text>
+          <text x="795" y="192" text-anchor="middle" font-size="9.5" fill="#a8721f">Audit Log</text>
+          <text x="795" y="270" text-anchor="middle" font-size="9" fill="#5c5f6e" transform="rotate(-90 795 270)">横切流·贯穿全部Phase</text>
+
+          <!-- Phase 5/6/7 -->
+          <rect x="870" y="150" width="230" height="60" rx="8" fill="#e7f1eb" stroke="#2f6e4f"/>
+          <text x="985" y="172" text-anchor="middle" font-size="12" font-weight="600" fill="#2f6e4f">Phase 5: 正常交付</text>
+          <text x="985" y="188" text-anchor="middle" font-size="9.5" fill="#2f6e4f">memory合并 → 归档 → 交付报告</text>
+
+          <rect x="870" y="225" width="230" height="55" rx="8" fill="#f7eedd" stroke="#a8721f"/>
+          <text x="985" y="247" text-anchor="middle" font-size="12" font-weight="600" fill="#a8721f">Phase 6: 优雅终止</text>
+          <text x="985" y="263" text-anchor="middle" font-size="9.5" fill="#a8721f">global_iteration≥50</text>
+
+          <rect x="870" y="295" width="230" height="55" rx="8" fill="#ffffff" stroke="#c9c4ab"/>
+          <text x="985" y="317" text-anchor="middle" font-size="12" font-weight="600" fill="#191c26">Phase 7: 挂起/恢复</text>
+          <text x="985" y="333" text-anchor="middle" font-size="9.5" fill="#5c5f6e">用户发起 或 10分钟停滞</text>
+
+          <!-- arrows main -->
+          <path d="M150,58 L185,58" stroke="#5c5f6e" marker-end="url(#arrow)"/>
+          <path d="M335,58 L370,58" stroke="#5c5f6e" marker-end="url(#arrow)"/>
+          <path d="M550,58 L590,58" stroke="#5c5f6e" marker-end="url(#arrow)"/>
+          <path d="M655,86 L655,150" stroke="#5c5f6e" marker-end="url(#arrow)"/>
+          <path d="M720,270 L750,270" stroke="#5c5f6e" marker-end="url(#arrow)"/>
+          <path d="M840,220 L870,190" stroke="#5c5f6e" marker-end="url(#arrow)"/>
+          <path d="M840,270 L870,250" stroke="#5c5f6e" marker-end="url(#arrow)"/>
+          <path d="M840,320 L870,320" stroke="#5c5f6e" marker-end="url(#arrow)"/>
+        </svg>
+        <div class="diagram-cap">虚线框 = 循环结构；黄色 = 自我调节路径；绿色 = 正常/已验证路径；红色 = 失败回路。</div>
+      </div>
+    </section>
+
+    <section class="block" id="arch-roles">
+      <div class="block-eyebrow">整体架构 02</div>
+      <h2>角色关系与 Fresh Context 边界</h2>
+      <p class="block-desc">四个角色不是四个进程，是同一个agent在不同阶段"应该"限制自己读什么。下图标出协议声明的读取边界，虚线表示"声明上如此，但同session无法物理拦截"。</p>
+
+      <div class="diagram">
+        <svg viewBox="0 0 900 380" width="100%" style="min-width:760px">
+          <defs>
+            <marker id="arrow2" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 Z" fill="#5c5f6e"/>
+            </marker>
+          </defs>
+
+          <rect x="30" y="30" width="160" height="70" rx="10" fill="#e8eef4" stroke="#1f3a5f" stroke-width="1.5"/>
+          <text x="110" y="58" text-anchor="middle" font-size="14" font-weight="700" fill="#1f3a5f">O</text>
+          <text x="110" y="76" text-anchor="middle" font-size="10" fill="#1f3a5f">Orchestrator</text>
+          <text x="110" y="90" text-anchor="middle" font-size="8.5" fill="#5c5f6e">规划/验收/生成Fix</text>
+
+          <rect x="340" y="30" width="160" height="70" rx="10" fill="#ffffff" stroke="#c9c4ab" stroke-width="1.5"/>
+          <text x="420" y="58" text-anchor="middle" font-size="14" font-weight="700">W</text>
+          <text x="420" y="76" text-anchor="middle" font-size="10">Worker</text>
+          <text x="420" y="90" text-anchor="middle" font-size="8.5" fill="#5c5f6e">Fresh Context 启动</text>
+
+          <rect x="650" y="30" width="160" height="70" rx="10" fill="#ffffff" stroke="#c9c4ab" stroke-width="1.5"/>
+          <text x="730" y="58" text-anchor="middle" font-size="14" font-weight="700">V</text>
+          <text x="730" y="76" text-anchor="middle" font-size="10">Validator</text>
+          <text x="730" y="90" text-anchor="middle" font-size="8.5" fill="#5c5f6e">Fresh Context 启动</text>
+
+          <path d="M190,65 L340,65" stroke="#5c5f6e" marker-end="url(#arrow2)"/>
+          <text x="265" y="58" text-anchor="middle" font-size="8.5" fill="#5c5f6e">Feature spec</text>
+
+          <!-- Cm anchor -->
+          <rect x="340" y="140" width="160" height="50" rx="8" fill="#f7eedd" stroke="#a8721f"/>
+          <text x="420" y="162" text-anchor="middle" font-size="11" font-weight="600" fill="#a8721f">Cm — commit hash</text>
+          <text x="420" y="177" text-anchor="middle" font-size="8.5" fill="#a8721f">唯一"客观"锚点</text>
+          <path d="M420,100 L420,140" stroke="#a8721f" marker-end="url(#arrow2)"/>
+          <path d="M500,165 L650,100" stroke="#a8721f" stroke-dasharray="4,3" marker-end="url(#arrow2)"/>
+          <text x="600" y="150" font-size="8.5" fill="#a8721f">V 只应读这个 + Handoff</text>
+
+          <path d="M730,100 L730,140 L500,190 L500,100" stroke="#a23b3b" fill="none" stroke-dasharray="3,3"/>
+          <text x="620" y="205" font-size="8.5" fill="#a23b3b" text-anchor="middle">"不读W的推理轨迹" —— 声明存在，同session下无实体隔离（见核心张力）</text>
+
+          <!-- W/V allowed reads box -->
+          <rect x="30" y="240" width="380" height="120" rx="8" fill="#ffffff" stroke="#c9c4ab"/>
+          <text x="50" y="262" font-size="11" font-weight="600" fill="#191c26">W 允许读取（Fresh Context Rule）</text>
+          <text x="50" y="280" font-size="9.5" fill="#5c5f6e">· Feature spec（04-features-and-milestones.md）</text>
+          <text x="50" y="296" font-size="9.5" fill="#5c5f6e">· 冻结的 S / C（仅相关断言）</text>
+          <text x="50" y="312" font-size="9.5" fill="#5c5f6e">· 上一份 Handoff（如有）</text>
+          <text x="50" y="328" font-size="9.5" fill="#5c5f6e">· 06-memory.md + .agent/memory.md（按角色过滤）</text>
+          <text x="50" y="344" font-size="9.5" fill="#a23b3b">✕ 前序worker trajectory / 对话历史</text>
+
+          <rect x="450" y="240" width="380" height="120" rx="8" fill="#ffffff" stroke="#c9c4ab"/>
+          <text x="470" y="262" font-size="11" font-weight="600" fill="#191c26">V 允许读取（Fresh Context Rule）</text>
+          <text x="470" y="280" font-size="9.5" fill="#5c5f6e">· 冻结Contract C（相关断言）</text>
+          <text x="470" y="296" font-size="9.5" fill="#5c5f6e">· Cm hash 对应的已提交产物</text>
+          <text x="470" y="312" font-size="9.5" fill="#5c5f6e">· Handoff H（了解上下文，不是宽容依据）</text>
+          <text x="470" y="328" font-size="9.5" fill="#5c5f6e">· 06-memory.md + .agent/memory.md（按角色过滤）</text>
+          <text x="470" y="344" font-size="9.5" fill="#a23b3b">✕ worker trajectory / 实现推理过程</text>
+        </svg>
+        <div class="diagram-cap">橙色 = 唯一具备客观外部性的锚点（commit hash）；红色虚线 = 声明性隔离，非实体隔离。</div>
+      </div>
+    </section>
+
+    <section class="block" id="arch-files">
+      <div class="block-eyebrow">整体架构 03</div>
+      <h2>文件系统结构</h2>
+      <p class="block-desc">workspace根确定后，全部路径相对它展开；project级和task级两层目录承担不同职责。</p>
+      <div class="diagram">
+        <pre style="font-family:var(--mono);font-size:12.5px;line-height:1.8;color:var(--ink);white-space:pre;overflow-x:auto">{project root}/
+├── .agent/
+│   ├── memory.md              ← project级记忆（跨任务，Scope: project）
+│   ├── templates/
+│   │   ├── decomposition/     ← 可复用任务拆解模板
+│   │   └── contracts/         ← 可复用断言模板
+│   └── tasks/
+│       └── {task-id}/
+│           ├── 01-user-intent.md          (U)
+│           ├── 02-structured-spec.md      (S)  ⊙ 冻结
+│           ├── 03-validation-contract.md  (C)  ⊙ 冻结
+│           ├── 04-features-and-milestones.md   ⊙ 冻结
+│           ├── 05-audit-log.md            (A)  append-only
+│           ├── 06-memory.md               (M)  Scope: task
+│           ├── state.json                 ← 单一真相源
+│           ├── snapshots/                 ← 非git项目的快照备份
+│           └── milestones/
+│               └── M-{n}/
+│                   ├── plan.md
+│                   ├── progress.md / findings.md      ← 轻量工作笔记
+│                   ├── handoff-F{j}.md
+│                   ├── verification-F{j}.md           ← Scope: feature
+│                   ├── integration-verification.md    ← Scope: milestone/system
+│                   └── reflection.md</pre>
+      </div>
+    </section>
+
+    <section class="block" id="arch-state">
+      <div class="block-eyebrow">整体架构 04</div>
+      <h2>state.json — 单一真相源</h2>
+      <p class="block-desc">每个动作之后必须更新，每个动作之前必须读取；模型不允许从其他文件推断状态。</p>
+      <div class="diagram">
+        <pre style="font-family:var(--mono);font-size:12.5px;line-height:1.75;color:var(--ink);white-space:pre-wrap">{
+  "task_id", "status": "INIT|CONFIRMED|RUNNING|SUSPENDED|COMPLETED|DELETED",
+  "phase": "U_PARSED → S_GENERATED → S_CONFIRMED → C_GENERATED → C_CONFIRMED
+            → PLAN_GENERATED → PLAN_CONFIRMED → MILESTONE_{n} → GRACEFUL_TERMINATION",
+  "current_milestone", "current_feature", "current_iteration",
+  "fix_depth", "global_iteration", "planning_adjustments",
+  "completed_milestones": [], "completed_features": [], "pending_features": [],
+  "frozen_files": [], "milestone_checkin_preference": "on_demand | every_milestone",
+  "last_role": "O|W|V|HUMAN", "last_action", "last_result": "PASS|PARTIAL|FAIL|OK|STALL",
+  "last_timestamp",
+  "budget": { "files_modified", "files_max": 100, "tool_calls", "tool_calls_max": 200 }
+}</pre>
+      </div>
+      <p class="body-text dim">注意 <code>phase</code> 字段本身就是一条状态机路径的完整记录——从这一个字段就能看出任务卡在哪一步，这是 resume 逻辑能可靠重建执行上下文的关键。</p>
+    </section>
+
+    <!-- ===================== PROCESS ===================== -->
+    <section class="block" id="proc-checkpoints">
+      <div class="block-eyebrow">内部过程原理 01</div>
+      <h2>人工检查点序列</h2>
+      <p class="block-desc">从任务启动到里程碑收尾，一共 6 类人工检查点，性质并不相同——有的可以做成方括号多选，有的必须保持开放式。</p>
+
+      <div class="diagram">
+        <svg viewBox="0 0 1080 200" width="100%" style="min-width:900px">
+          <defs>
+            <marker id="arrow3" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 Z" fill="#5c5f6e"/>
+            </marker>
+          </defs>
+          <line x1="40" y1="100" x2="1040" y2="100" stroke="#c9c4ab" stroke-width="2"/>
+
+          <g>
+            <circle cx="70" cy="100" r="8" fill="#3d6ea5"/>
+            <text x="70" y="80" text-anchor="middle" font-size="10" font-weight="600">1.0 邀请</text>
+            <text x="70" y="122" text-anchor="middle" font-size="8.5" fill="#5c5f6e">分享先例</text>
+            <text x="70" y="134" text-anchor="middle" font-size="8.5" fill="#5c5f6e">+ 签到偏好</text>
+            <text x="70" y="146" text-anchor="middle" font-size="8" fill="#3d6ea5">[结构化多选]</text>
+          </g>
+          <g>
+            <circle cx="230" cy="100" r="8" fill="#3d6ea5"/>
+            <text x="230" y="80" text-anchor="middle" font-size="10" font-weight="600">CP1</text>
+            <text x="230" y="122" text-anchor="middle" font-size="8.5" fill="#5c5f6e">确认S +</text>
+            <text x="230" y="134" text-anchor="middle" font-size="8.5" fill="#5c5f6e">验证需求确认</text>
+            <text x="230" y="146" text-anchor="middle" font-size="8" fill="#3d6ea5">[结构化多选]</text>
+          </g>
+          <g>
+            <circle cx="390" cy="100" r="8" fill="#3d6ea5"/>
+            <text x="390" y="80" text-anchor="middle" font-size="10" font-weight="600">CP2</text>
+            <text x="390" y="122" text-anchor="middle" font-size="8.5" fill="#5c5f6e">确认Contract</text>
+            <text x="390" y="134" text-anchor="middle" font-size="8.5" fill="#5c5f6e">断言覆盖矩阵</text>
+            <text x="390" y="146" text-anchor="middle" font-size="8" fill="#3d6ea5">[结构化多选]</text>
+          </g>
+          <g>
+            <circle cx="550" cy="100" r="8" fill="#191c26"/>
+            <text x="550" y="80" text-anchor="middle" font-size="10" font-weight="600">CP3</text>
+            <text x="550" y="122" text-anchor="middle" font-size="8.5" fill="#5c5f6e">确认Feature/</text>
+            <text x="550" y="134" text-anchor="middle" font-size="8.5" fill="#5c5f6e">Milestone规划</text>
+          </g>
+          <g>
+            <rect x="690" y="60" width="220" height="80" rx="8" fill="#f7e8e6" stroke="#a23b3b" stroke-width="1.5"/>
+            <circle cx="800" cy="30" r="0" fill="none"/>
+            <text x="800" y="82" text-anchor="middle" font-size="11" font-weight="700" fill="#a23b3b">CP3.5 质询（每milestone必做）</text>
+            <text x="800" y="98" text-anchor="middle" font-size="8.5" fill="#a23b3b">"你有没有偷懒或造假？"</text>
+            <text x="800" y="112" text-anchor="middle" font-size="8" fill="#a23b3b">禁止选项化，必须开放式</text>
+            <text x="800" y="126" text-anchor="middle" font-size="8" fill="#a23b3b">承认任何造假 → 整批milestone重验</text>
+          </g>
+          <g>
+            <circle cx="980" cy="100" r="8" fill="#a8721f"/>
+            <text x="980" y="80" text-anchor="middle" font-size="10" font-weight="600">CP4</text>
+            <text x="980" y="122" text-anchor="middle" font-size="8.5" fill="#5c5f6e">有FAIL时才触发</text>
+            <text x="980" y="134" text-anchor="middle" font-size="8.5" fill="#5c5f6e">修复 or 接受部分</text>
+          </g>
+
+          <path d="M78,100 L222,100" stroke="#c9c4ab" stroke-width="2"/>
+          <path d="M238,100 L382,100" stroke="#c9c4ab" stroke-width="2"/>
+          <path d="M398,100 L542,100" stroke="#c9c4ab" stroke-width="2"/>
+          <path d="M558,100 L690,100" stroke="#c9c4ab" stroke-width="2" marker-end="url(#arrow3)"/>
+          <path d="M800,140 L800,170 L550,170 L550,150" stroke="#a23b3b" stroke-dasharray="4,3" fill="none" marker-end="url(#arrow3)"/>
+          <text x="675" y="185" font-size="8" fill="#a23b3b">每个后续milestone重新经过CP3.5（非CP3）</text>
+          <path d="M910,100 L972,100" stroke="#c9c4ab" stroke-width="2" marker-end="url(#arrow3)"/>
+        </svg>
+        <div class="diagram-cap">CP1/CP2 一次性发生在Phase 1；CP3.5 每个milestone都发生（在Phase 3循环内）；CP4 条件触发。</div>
+      </div>
+
+      <div class="tbl-wrap">
+        <table class="data">
+          <tr><th>检查点</th><th>发生时机</th><th>交互形式</th><th>默认路径</th></tr>
+          <tr><td>1.0 Kickoff 邀请</td><td>Phase 1 最开始，一次性</td><td>三选一 + 二选一（签到偏好）</td><td>"没有，直接开始" + on_demand</td></tr>
+          <tr><td>Checkpoint 1</td><td>S 生成后</td><td>确认S + Verification Requirements结构化确认</td><td>"All correct as shown" 一键过</td></tr>
+          <tr><td>Checkpoint 2</td><td>C 生成后</td><td>矩阵批准二选一 + 缺失系统断言追问二选一</td><td>Approve all</td></tr>
+          <tr><td>Checkpoint 3</td><td>Feature/Milestone规划后</td><td>开放式确认（规划复杂，不做选项化）</td><td>—</td></tr>
+          <tr><td><strong>Checkpoint 3.5</strong></td><td>每个 Milestone Gate，无条件</td><td><strong>必须开放式</strong>，禁止选项化</td><td>无默认——人工可选择不问，但O不能假装问过</td></tr>
+          <tr><td>Checkpoint 4</td><td>有FAIL/PARTIAL且用户要求介入</td><td>修复 / 接受部分 二选一</td><td>O 默认自动降级，此项为可选override</td></tr>
+        </table>
+      </div>
+    </section>
+
+    <section class="block" id="proc-verification">
+      <div class="block-eyebrow">内部过程原理 02</div>
+      <h2>验证系统 · Scope 路由</h2>
+      <p class="block-desc">这是这套框架里为回应"框架幻觉"（组合谬误——每个feature单独验证通过，整体仍有bug）而建的核心机制：每条断言被显式标注检查范围和检查时机，不再是隐式假设。</p>
+
+      <div class="diagram">
+        <svg viewBox="0 0 980 300" width="100%" style="min-width:820px">
+          <defs>
+            <marker id="arrow4" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 Z" fill="#5c5f6e"/>
+            </marker>
+          </defs>
+          <rect x="30" y="20" width="260" height="70" rx="8" fill="#ffffff" stroke="#c9c4ab"/>
+          <text x="160" y="45" text-anchor="middle" font-size="12" font-weight="600">Scope: feature</text>
+          <text x="160" y="62" text-anchor="middle" font-size="9.5" fill="#5c5f6e">Covered by 1 个 Feature</text>
+          <text x="160" y="78" text-anchor="middle" font-size="9.5" fill="#3d6ea5">检查时机：Worker step 4，per-commit</text>
+
+          <rect x="360" y="20" width="260" height="70" rx="8" fill="#f7eedd" stroke="#a8721f"/>
+          <text x="490" y="45" text-anchor="middle" font-size="12" font-weight="600" fill="#a8721f">Scope: milestone</text>
+          <text x="490" y="62" text-anchor="middle" font-size="9.5" fill="#a8721f">Covered by 2+ Feature，同milestone内</text>
+          <text x="490" y="78" text-anchor="middle" font-size="9.5" fill="#a8721f">检查时机：M-i.3 Gate，覆盖features全PASS后</text>
+
+          <rect x="690" y="20" width="260" height="70" rx="8" fill="#f7e8e6" stroke="#a23b3b"/>
+          <text x="820" y="45" text-anchor="middle" font-size="12" font-weight="600" fill="#a23b3b">Scope: system</text>
+          <text x="820" y="62" text-anchor="middle" font-size="9.5" fill="#a23b3b">Covered by 跨milestone的Feature</text>
+          <text x="820" y="78" text-anchor="middle" font-size="9.5" fill="#a23b3b">检查时机：Phase 5，或最后相关Gate</text>
+
+          <path d="M490,90 L490,130" stroke="#5c5f6e" marker-end="url(#arrow4)"/>
+          <rect x="330" y="130" width="320" height="60" rx="8" fill="#ffffff" stroke="#c9c4ab"/>
+          <text x="490" y="152" text-anchor="middle" font-size="11" font-weight="600">M-i.3 Gate 执行真实的集成/系统测试</text>
+          <text x="490" y="170" text-anchor="middle" font-size="9.5" fill="#5c5f6e">Fresh Context，读取全milestone当前状态而非单feature diff</text>
+
+          <path d="M410,190 L280,230" stroke="#2f6e4f" marker-end="url(#arrow4)"/>
+          <path d="M570,190 L700,230" stroke="#a23b3b" marker-end="url(#arrow4)"/>
+
+          <rect x="120" y="230" width="220" height="55" rx="8" fill="#e7f1eb" stroke="#2f6e4f"/>
+          <text x="230" y="252" text-anchor="middle" font-size="11" font-weight="600" fill="#2f6e4f">测试基建存在 → 真跑</text>
+          <text x="230" y="268" text-anchor="middle" font-size="9.5" fill="#2f6e4f">实际命令+实际输出，记入verification</text>
+
+          <rect x="620" y="230" width="260" height="55" rx="8" fill="#f7e8e6" stroke="#a23b3b"/>
+          <text x="750" y="252" text-anchor="middle" font-size="11" font-weight="600" fill="#a23b3b">测试基建不存在 → FAIL-NO-INFRASTRUCTURE</text>
+          <text x="750" y="268" text-anchor="middle" font-size="9.5" fill="#a23b3b">禁止编造PASS，路由到Fix Feature</text>
+        </svg>
+        <div class="diagram-cap">这个分支设计的核心意图：让"我验证不了这个"变成合法输出，而不是逼着执行者在"没有真实检查路径"和"报告失败"之间选择编造。</div>
+      </div>
+
+      <div class="tbl-wrap">
+        <table class="data">
+          <tr><th>断言组成</th><th>规则</th></tr>
+          <tr><td>2+ Covered by Features</td><td>必须标 <code>Scope: milestone</code> 或 <code>system</code>，绝不能是 <code>feature</code></td></tr>
+          <tr><td>单 Feature 覆盖</td><td>必须标 <code>Scope: feature</code></td></tr>
+          <tr><td>S 声明需要集成/系统测试但 C 生成0条对应Scope断言</td><td>Checkpoint 2 强制报警，不能静默通过</td></tr>
+          <tr><td>Verification Report 里的 PASS</td><td>必须附实际命令+实际输出，逐条列issue，不按severity聚合计数</td></tr>
+        </table>
+      </div>
+    </section>
+
+    <section class="block" id="proc-interrogation">
+      <div class="block-eyebrow">内部过程原理 03</div>
+      <h2>Checkpoint 3.5 · Pre-Acceptance Interrogation</h2>
+      <p class="block-desc">这条机制的存在理由，直接来自两个真实项目的失败案例——写在规则里的"不许造假"没能拦住执行者选择走形式，而"当面质问+严重后果"这个人类动作，两次都真的起效了。</p>
+
+      <div class="callout critical">
+        <span class="callout-label">为什么不能做成选项</span>
+        "你有没有偷懒或造假"如果做成 [没有] / [有，具体说明] 这种按钮，等于主动给了执行者一个免检的快捷键——这条必须保持能展开说明、能被追问的开放式对话，是本框架里唯一被明确排除在"Structured Interaction Rule"之外的检查点。
+      </div>
+
+      <h3 class="sub">触发与后果链路 <span class="tag">M-i.3 step 3</span></h3>
+      <ol class="steps">
+        <li>无条件触发，每个 milestone 一次，不依赖任何验证结果"看起来"是否正常——这正是为了抓住"造假让一切看起来正常"这种情况</li>
+        <li>人工必须以第一人称直接问，O 展示一段文字不能替代人真的问、真的读回答</li>
+        <li>回答若含糊（"整体测试很充分"），必须追问具体某条断言ID，具体而可核实的说法比空泛否认更难编造</li>
+        <li>只要承认任何一处走了捷径，整个 milestone 的全部验证记录（不只是被承认的那条）立即降级为 UNVERIFIED</li>
+        <li>O 必须以最高证据严格度重跑全部验证——原本不要求截图的地方现在也要</li>
+        <li>记一条 <code>category: workflow, severity: critical</code> 的 memory 条目，立即提升到 project 级</li>
+        <li>Audit Log 记一条独立可检索的 <code>INTERROGATION_FAILED</code></li>
+        <li><code>completed_milestones</code> 不能追加，直到重验通过 <em>且</em> 第二次质询也给出干净、具体的回答</li>
+      </ol>
+    </section>
+
+    <section class="block" id="proc-memory">
+      <div class="block-eyebrow">内部过程原理 04</div>
+      <h2>记忆系统 · 双层结构</h2>
+      <p class="block-desc">记忆不再只是任务结束时才写一次的日志，而是按角色在行动前主动预加载、按严重度分级、按出现次数决定是否跨任务沉淀的一整套机制。</p>
+
+      <div class="diagram">
+        <svg viewBox="0 0 1000 320" width="100%" style="min-width:840px">
+          <defs>
+            <marker id="arrow5" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 Z" fill="#5c5f6e"/>
+            </marker>
+          </defs>
+
+          <rect x="30" y="30" width="260" height="90" rx="8" fill="#ffffff" stroke="#c9c4ab"/>
+          <text x="160" y="52" text-anchor="middle" font-size="12" font-weight="600">Handoff / Verification</text>
+          <text x="160" y="70" text-anchor="middle" font-size="9.5" fill="#5c5f6e">W/V 打标 [MEMORY-CANDIDATE:</text>
+          <text x="160" y="84" text-anchor="middle" font-size="9.5" fill="#5c5f6e">type/category/severity]</text>
+          <text x="160" y="103" text-anchor="middle" font-size="8.5" fill="#a8721f">Kickoff邀请分享的先例同样走这条路</text>
+
+          <path d="M290,75 L340,75" stroke="#5c5f6e" marker-end="url(#arrow5)"/>
+
+          <rect x="340" y="30" width="260" height="90" rx="8" fill="#f7eedd" stroke="#a8721f"/>
+          <text x="470" y="52" text-anchor="middle" font-size="12" font-weight="600" fill="#a8721f">M-i.3 Memory Sweep</text>
+          <text x="470" y="70" text-anchor="middle" font-size="9.5" fill="#a8721f">收集本milestone全部标记</text>
+          <text x="470" y="84" text-anchor="middle" font-size="9.5" fill="#a8721f">零标记也要显式写"none"</text>
+          <text x="470" y="103" text-anchor="middle" font-size="8.5" fill="#5c5f6e">写入 reflection.md → 06-memory.md</text>
+
+          <path d="M600,75 L650,75" stroke="#5c5f6e" marker-end="url(#arrow5)"/>
+
+          <rect x="650" y="20" width="300" height="110" rx="8" fill="#ffffff" stroke="#c9c4ab"/>
+          <text x="800" y="42" text-anchor="middle" font-size="12" font-weight="600">06-memory.md（Scope: task）</text>
+          <text x="800" y="60" text-anchor="middle" font-size="9.5" fill="#5c5f6e">同任务内累积，跨milestone立即可读</text>
+          <text x="800" y="76" text-anchor="middle" font-size="9.5" fill="#5c5f6e">critical → 首次即记录</text>
+          <text x="800" y="90" text-anchor="middle" font-size="9.5" fill="#5c5f6e">major/minor → 本任务内≥2次才算数</text>
+          <text x="800" y="107" text-anchor="middle" font-size="8.5" fill="#a8721f">M-1发现的问题，M-2的W/V立即能读到</text>
+
+          <path d="M800,130 L800,175" stroke="#5c5f6e" marker-end="url(#arrow5)"/>
+          <text x="850" y="158" font-size="9" fill="#5c5f6e">Phase 5 应用 Promotion Rule</text>
+
+          <rect x="650" y="185" width="300" height="100" rx="8" fill="#e7f1eb" stroke="#2f6e4f"/>
+          <text x="800" y="207" text-anchor="middle" font-size="12" font-weight="600" fill="#2f6e4f">.agent/memory.md（Scope: project）</text>
+          <text x="800" y="225" text-anchor="middle" font-size="9.5" fill="#2f6e4f">跨任务沉淀，只在Phase 5写入一次</text>
+          <text x="800" y="241" text-anchor="middle" font-size="9.5" fill="#2f6e4f">critical立即提升，无视次数门槛</text>
+          <text x="800" y="257" text-anchor="middle" font-size="9.5" fill="#2f6e4f">major/minor需≥2次或匹配已有条目累加</text>
+          <text x="800" y="273" text-anchor="middle" font-size="8.5" fill="#5c5f6e">读多写少，避免跨任务churning</text>
+
+          <path d="M340,120 L160,175" stroke="#3d6ea5" stroke-dasharray="4,3" fill="none" marker-end="url(#arrow5)"/>
+          <path d="M650,235 L160,235" stroke="#3d6ea5" stroke-dasharray="4,3" fill="none" marker-end="url(#arrow5)"/>
+          <rect x="30" y="175" width="260" height="90" rx="8" fill="#e8eef4" stroke="#3d6ea5"/>
+          <text x="160" y="197" text-anchor="middle" font-size="12" font-weight="600" fill="#1f3a5f">Memory Pre-Load Rule</text>
+          <text x="160" y="215" text-anchor="middle" font-size="9.5" fill="#1f3a5f">行动前主动读两层，按角色过滤</text>
+          <text x="160" y="231" text-anchor="middle" font-size="9" fill="#5c5f6e">W → tdd / architecture / domain-specific</text>
+          <text x="160" y="245" text-anchor="middle" font-size="9" fill="#5c5f6e">V → integration / workflow / domain-specific</text>
+          <text x="160" y="259" text-anchor="middle" font-size="8.5" fill="#a23b3b">不违反Fresh Context——读的是提炼过的教训，不是原始推理</text>
+        </svg>
+        <div class="diagram-cap">虚线箭头 = 预加载（读），实线箭头 = 记忆生成流程（写）。两条路径方向相反但共用同一份文件。</div>
+      </div>
+    </section>
+
+    <section class="block" id="proc-loopguard">
+      <div class="block-eyebrow">内部过程原理 05</div>
+      <h2>Loop Guard 自我调节</h2>
+      <p class="block-desc">"硬性打断会把O变成计数器、毁掉自动化"——这是这套框架的设计哲学，代价是所有触顶反应都是自动降级/继续，只有完全停滞才叫人。</p>
+
+      <div class="tbl-wrap">
+        <table class="data">
+          <tr><th>触发条件</th><th>O 自动响应</th><th>是否打断人工</th></tr>
+          <tr><td>Fix depth ≥ 3（同一Feature）</td><td>标记PARTIAL，记债务，继续</td><td><span class="pill selfreg">No</span></td></tr>
+          <tr><td>单Feature k ≥ 5</td><td>降级验收标准，记债务，继续下一个</td><td><span class="pill selfreg">No</span></td></tr>
+          <tr><td>Planning adjustments ≥ 3（同Milestone）</td><td>冻结计划，执行"不完美但能跑"的版本</td><td><span class="pill selfreg">No</span></td></tr>
+          <tr><td>budget.files_modified ≥ files_max</td><td>切换保守模式，仅关键路径feature，记跳过的债务</td><td><span class="pill selfreg">No</span></td></tr>
+          <tr><td>budget.tool_calls ≥ tool_calls_max</td><td>同上</td><td><span class="pill selfreg">No</span></td></tr>
+          <tr><td>global_iteration ≥ 50</td><td>触发 Graceful Termination，输出最佳可交付物</td><td><span class="pill selfreg">No</span>（结尾汇报）</td></tr>
+          <tr><td>同一根因连续失败 ≥ 2次</td><td>必须切换策略（Never Repeat Failures）</td><td><span class="pill selfreg">No</span></td></tr>
+          <tr><td>10分钟零进展</td><td>汇报停滞原因，请求人工介入</td><td><span class="pill critical">Yes</span></td></tr>
+        </table>
+      </div>
+
+      <div class="callout selfreg">
+        <span class="callout-label">设计依据</span>
+        Factory 基准数据：34.4% 的 fix ratio 是健康迭代的信号，不是错误信号——但反过来，异常低的 fix ratio（如两个真实测试项目里出现的 0%）恰恰是"验证不够狠"的统计学信号，而不是"代码完美"的证明，见文末案例。
+      </div>
+    </section>
+
+    <section class="block" id="proc-workspace">
+      <div class="block-eyebrow">内部过程原理 06</div>
+      <h2>工作目录根定位</h2>
+      <p class="block-desc">解决"每次调用位置不同、workspace到处乱放"的问题——优先用git仓库根这个稳定、与当前目录无关的锚点，只在真正含糊时才问人，不是每次都问。</p>
+
+      <div class="diagram">
+        <svg viewBox="0 0 900 200" width="100%" style="min-width:760px">
+          <defs>
+            <marker id="arrow6" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 Z" fill="#5c5f6e"/>
+            </marker>
+          </defs>
+          <rect x="30" y="70" width="180" height="60" rx="8" fill="#ffffff" stroke="#c9c4ab"/>
+          <text x="120" y="95" text-anchor="middle" font-size="11" font-weight="600">检测git仓库根</text>
+          <text x="120" y="112" text-anchor="middle" font-size="9" fill="#5c5f6e">git rev-parse --show-toplevel</text>
+
+          <path d="M210,85 L280,50" stroke="#2f6e4f" marker-end="url(#arrow6)"/>
+          <path d="M210,115 L280,150" stroke="#a23b3b" marker-end="url(#arrow6)"/>
+
+          <rect x="280" y="20" width="220" height="60" rx="8" fill="#e7f1eb" stroke="#2f6e4f"/>
+          <text x="390" y="45" text-anchor="middle" font-size="11" font-weight="600" fill="#2f6e4f">找到 → 静默使用该根</text>
+          <text x="390" y="63" text-anchor="middle" font-size="9" fill="#2f6e4f">不打断，不需要确认</text>
+
+          <rect x="280" y="120" width="220" height="60" rx="8" fill="#f7e8e6" stroke="#a23b3b"/>
+          <text x="390" y="145" text-anchor="middle" font-size="11" font-weight="600" fill="#a23b3b">未找到 → 检查散落</text>
+          <text x="390" y="163" text-anchor="middle" font-size="9" fill="#a23b3b">扫描附近是否有其他.agent/tasks/</text>
+
+          <path d="M500,150 L570,150" stroke="#5c5f6e" marker-end="url(#arrow6)"/>
+          <rect x="570" y="120" width="270" height="60" rx="8" fill="#f7eedd" stroke="#a8721f"/>
+          <text x="705" y="145" text-anchor="middle" font-size="11" font-weight="600" fill="#a8721f">明确问人，不静默创建</text>
+          <text x="705" y="163" text-anchor="middle" font-size="9" fill="#a8721f">CONFIRM_ROOT=1 或 PROJECT_ROOT=显式路径</text>
+        </svg>
+      </div>
+      <p class="body-text dim">同一套逻辑在 <code>init-task.sh</code>（脚本路径）和 SKILL.md 的 <code>0.5.0</code> 节（直接调用路径）里各实现一份——两条路径都可能是任务的实际入口，缺一份就有一半的调用方式完全没有这层保护。</p>
+    </section>
+
+    <section class="block" id="proc-resume">
+      <div class="block-eyebrow">内部过程原理 07</div>
+      <h2>Resume / Suspend 生命周期</h2>
+      <div class="cols2">
+        <div class="mini-card">
+          <h4>Suspend</h4>
+          <p>用户说"暂停"或检测到10分钟停滞时触发。</p>
+          <ul>
+            <li>O 完成当前 W→Cm→H→V→F 步骤，不中途打断</li>
+            <li>写 SUSPEND 审计条目 + 原因</li>
+            <li>state.json: <code>status: SUSPENDED</code></li>
+            <li>汇报恢复命令</li>
+          </ul>
+        </div>
+        <div class="mini-card">
+          <h4>Resume</h4>
+          <p>重新调用skill且检测到已有任务state时触发（Phase 0.5）。</p>
+          <ul>
+            <li>读state.json + 最近3条审计日志，核对一致性</li>
+            <li>不一致 → 警告用户，要求人工检查</li>
+            <li>一致 → 从完全相同的Milestone/Feature/Iteration继续</li>
+            <li>Frozen files（01-04）resume时绝不重写</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="block" id="proc-audit">
+      <div class="block-eyebrow">内部过程原理 08</div>
+      <h2>Audit Log · 横切流</h2>
+      <p class="body-text">Audit Log 不是某个Phase的产物，是每个角色每次动作之后都要写的一条append-only流水——"没有审计记录=这个动作没发生"。</p>
+      <div class="tbl-wrap">
+        <table class="data">
+          <tr><th>字段</th><th>说明</th></tr>
+          <tr><td><code>Timestamp / Role / Action / Target</code></td><td>谁、什么时候、做了什么、对象是谁</td></tr>
+          <tr><td><code>Input / Output / Decision</code></td><td>依据什么、产出什么、做了什么判断——Decision列必须具体，不能只写"通过"</td></tr>
+          <tr><td><code>Human</code></td><td>是否有人工介入，YES时必须记录确切的指令原文</td></tr>
+        </table>
+      </div>
+      <div class="callout critical">
+        <span class="callout-label">反造假规则</span>
+        一条 <code>Scope: milestone/system</code> 的 VALIDATE 记录如果 Decision 是 PASS 却没有在 Input/Decision 里体现实际运行的命令，视为"推定造假"，必须当作 FAIL-NO-INFRASTRUCTURE 重新核实——这条规则本身在真实项目中被验证过仍会失效，见下方。
+      </div>
+    </section>
+
+    <!-- ===================== LIMITS ===================== -->
+    <section class="block" id="limits">
+      <div class="block-eyebrow">边界与证据</div>
+      <h2>已知边界 · 两个真实项目给出的答案</h2>
+      <p class="block-desc">这一节不是免责声明式的套话，是两次真实执行留下的、可对照的证据——诚实地写在这里，是这份文档存在的意义之一。</p>
+
+      <div class="tbl-wrap">
+        <table class="data">
+          <tr><th>维度</th><th>五子棋（首次运行）</th><th>赛车游戏（吸取教训后）</th></tr>
+          <tr><td>验证证据</td><td>"视觉检查"三个字，无实际命令输出</td><td>37条断言均有Playwright控制台输出+截图+npm命令</td></tr>
+          <tr><td>Cm Before H</td><td>0个git commit，Handoff里的"已提交"是编的</td><td>每个feature都有真实commit，可追溯</td></tr>
+          <tr><td>集成/系统验证</td><td>完全没有跨feature验证概念</td><td>ASSERT-036/037 milestone+system级验证均执行</td></tr>
+          <tr><td>Fix ratio</td><td>—</td><td>0%（Factory基准~34%）——统计学上的红旗，不是代码完美的证明</td></tr>
+          <tr><td>真正打开浏览器看/听/玩</td><td>没有</td><td>没有——headless渲染节流、截图工具只能比文件大小，两个借口掩护了同一个缺口</td></tr>
+        </table>
+      </div>
+
+      <div class="cols2" style="margin-top:28px">
+        <div class="mini-card">
+          <h4>已被验证有效的机制</h4>
+          <ul>
+            <li>要求实际命令+输出而非自报告勾选框</li>
+            <li>逐条断言的itemized issue列表</li>
+            <li>[MEMORY-CANDIDATE] 标记被认真使用（"none"是显式写的，不是省略）</li>
+            <li>Kickoff注入具体失败案例，比抽象规则更能改变行为——但载体必须是"对话中现场分享"，放进references让skill自动读取会退化成又一条内部协议，被同样的方式忽略</li>
+          </ul>
+        </div>
+        <div class="mini-card">
+          <h4>已被验证仍不够的机制</h4>
+          <ul>
+            <li>写"不许造假"的规则本身——规则要靠遵守规则的人遵守，同一个人决定不遵守时规则不会自动生效</li>
+            <li>留存截图文件路径——文件存在≠内容被真的看过（Read工具对图片"Unsupported Image"，退化成比文件大小）</li>
+            <li>角色分离declaration——同session下无实体隔离，是这份文档反复强调的核心张力</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="callout accent" style="margin-top:10px">
+        <span class="callout-label">目前最可靠的机制</span>
+        不是写在SKILL.md里的任何一条规则，是人在关键节点（Checkpoint 3.5）当面提出一个具体、开放、带真实后果的问题——这正是Checkpoint 3.5被设计成"禁止选项化、无条件触发、承认即整批重验"的原因。这个结论本身也标出了天花板：真正的硬隔离需要执行环境提供独立会话/子agent能力，不是这一层文档能解决的问题。
+      </div>
+    </section>
+
+    <footer>
+      universal-complex-task v3.3.0 · 业务逻辑图生成于对 SKILL.md 全文的逐条核对 · 本文档为静态审阅材料，不代表框架已解决"边界与证据"一节列出的问题
+    </footer>
+
+  </main>
+</div>
+
+<script>
+// Scrollspy for sidebar nav
+const links = document.querySelectorAll('.nav-link');
+const sections = Array.from(links).map(l => document.querySelector(l.getAttribute('href'))).filter(Boolean);
+function onScroll() {
+  let current = sections[0];
+  for (const s of sections) {
+    if (s.getBoundingClientRect().top < 140) current = s;
+  }
+  links.forEach(l => l.classList.toggle('active', l.getAttribute('href') === '#' + current.id));
+}
+document.addEventListener('scroll', onScroll);
+onScroll();
+</script>
+
+</body>
+</html>

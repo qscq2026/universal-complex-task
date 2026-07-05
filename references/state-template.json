@@ -16,6 +16,7 @@
   "completed_features": [],
   "pending_features": [],
   "frozen_files": [],
+  "milestone_checkin_preference": "on_demand",
   "last_role": "O",
   "last_action": "INIT",
   "last_result": "OK",

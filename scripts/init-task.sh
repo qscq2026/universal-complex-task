@@ -80,6 +80,26 @@ mkdir -p "$TASK_DIR/snapshots"
 mkdir -p ".agent/templates/decomposition"
 mkdir -p ".agent/templates/contracts"
 
+# Project-level memory: create only if this is the first task ever run in this project.
+# Idempotent on purpose — a second task must NOT overwrite memory accumulated by earlier tasks.
+if [ ! -f ".agent/memory.md" ]; then
+    cat > ".agent/memory.md" << 'EOF'
+# Memory: project-level (.agent/memory.md)
+
+## Scope
+- **Scope**: project
+- **Last updated**: (not yet updated)
+
+## Quick Index
+| ID | Type | Category | Severity | Applies To | Occurrences | Title |
+|----|------|----------|----------|-----------|--------------|-------|
+
+## Entries
+(none yet — populated at Phase 5 of each task, per the Promotion Rule in
+references/memory-template.md. Read by O/W/V before acting, per the Memory Pre-Load Rule.)
+EOF
+fi
+
 # Generate state.json
 cat > "$TASK_DIR/state.json" << EOF
 {
@@ -96,6 +116,7 @@ cat > "$TASK_DIR/state.json" << EOF
   "completed_features": [],
   "pending_features": [],
   "frozen_files": [],
+  "milestone_checkin_preference": "on_demand",
   "last_role": "O",
   "last_action": "INIT",
   "last_result": "OK",
@@ -169,13 +190,21 @@ cat > "$TASK_DIR/05-audit-log.md" << 'EOF'
 EOF
 
 cat > "$TASK_DIR/06-memory.md" << 'EOF'
-# Memory (M) — Cross-Task Experience
+# Memory: task-level (06-memory.md)
 
-## This Task
-{to be accumulated}
+## Scope
+- **Scope**: task
+- **Last updated**: (not yet updated)
 
-## Cross-Task Merge Status
-- [ ] Pending merge to .agent/memory.md
+## Quick Index
+| ID | Type | Category | Severity | Applies To | Occurrences | Title |
+|----|------|----------|----------|-----------|--------------|-------|
+
+## Entries
+(none yet — populated by the Kickoff Invitation at 1.0 if anything is shared, by
+[MEMORY-CANDIDATE] tags swept at each Milestone Gate, and reviewed for promotion to
+.agent/memory.md at Phase 5. See references/memory-template.md for entry format and
+the Promotion Rule.)
 EOF
 
 touch "$TASK_DIR/milestones/.gitkeep"

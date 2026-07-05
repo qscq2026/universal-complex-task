@@ -73,6 +73,21 @@ Evaluate against 6 dimensions. If < 2 "complex" flags, switch to fast-execution 
 
 Before any initialization, O MUST check for existing task state.
 
+### 0.5.0 Workspace Root Determination
+If invoked via `scripts/init-task.sh`, this was already handled by the script — skip to 0.5.1. If O
+is executing these instructions directly (no script), it must do the equivalent itself before touching
+any file, using whatever shell/tool access it has:
+1. Attempt to find a git repository root (e.g. `git rev-parse --show-toplevel`) from the current
+   working directory. If found, that is the workspace root — proceed silently, no need to ask.
+2. If no git repository is found, OR if a scan of nearby parent directories turns up another
+   `.agent/tasks/` directory that isn't under the candidate root — both are genuinely ambiguous cases,
+   not something to guess through: ask the human explicitly which root to use before creating anything.
+   Do not silently create a new `.agent/` tree at whatever the current directory happens to be — this
+   is exactly how workspaces end up scattered across a filesystem with no single source of truth.
+3. Once determined (silently or by asking), all paths in this document (`.agent/tasks/{task-id}/`,
+   `.agent/memory.md`, `.agent/templates/`) are relative to that root, for the rest of this task and
+   every future resume of it.
+
 ### 0.5.1 Task Directory Existence Check
 - If `.agent/tasks/{task-id}/` exists:
   - Read `state.json`
@@ -112,9 +127,41 @@ Before any initialization, O MUST check for existing task state.
 - Audit Log is append-only; resume adds `RESUME` row, never deletes history
 - `06-memory.md` (task-level) is read by W/V before every Feature and updated at every Milestone Gate's memory sweep; `.agent/memory.md` (project-level) is read the same way but only written once, at Phase 5 — this keeps cross-task memory from churning mid-task while still letting within-task lessons propagate immediately
 
+### Structured Interaction Rule
+When presenting the human with 2+ distinct options to choose from — not open-ended feedback — use an
+explicit bracketed choice list, e.g. `[Resume] [Restart] [Inspect]` above. Do not bundle multiple
+decisions into one free-text question the human has to unpack and respond to in prose — a requirement
+buried in a wall of prose is easy to miss, a requirement sitting in its own bracketed option is not.
+If the executing environment offers a native structured single/multi-select UI tool, prefer that over plain text brackets — the brackets are the universal fallback, not the ceiling.
+This applies throughout Phase 1's Human Checkpoints (see 1.0–1.3 below) and wherever else 2+ options exist.
+**Exception**: Human Checkpoint 3.5 (Pre-Acceptance Interrogation, see M-i.3) must stay open-ended —
+turning "did you cut corners" into selectable options hands the executing agent an easy denial button.
+
 ---
 
 ## Phase 1: Goal Definition (U → S → C) with Human-in-the-Loop
+
+### 1.0 Kickoff Invitation (once, before U Parsing — not repeated per-milestone by default)
+1. Before parsing U, ask the human, as a structured choice:
+   ```
+   Before we start:
+   [Share a previous project's lessons/violations] [Something else I should know] [Nothing — let's go]
+   ```
+2. If either of the first two is chosen, ask them to paste/describe it, then record it as a
+   `category: workflow`, `severity: critical` entry in `06-memory.md` (`references/memory-template.md`)
+   — promoted to `.agent/memory.md` immediately per the Promotion Rule's critical-severity exception, so
+   it's pre-loaded for every Worker/Validator from M-1 onward, not just remembered for this conversation.
+3. Also ask, as a second structured choice in the same turn (don't make this a separate interruption):
+   ```
+   Should I check in every milestone to ask if there's anything new to flag, or just rely on you
+   speaking up when something comes to mind?
+   [Check in every milestone] [Just let me know if it comes up]
+   ```
+   Store the answer in `state.json`'s `milestone_checkin_preference` (`every_milestone` | `on_demand`,
+   default `on_demand` if the human doesn't express a preference — do not default to the more
+   automation-costly option). This persists across suspend/resume; only asked once per task.
+4. Proceed to 1.1 regardless of what was chosen — this step never blocks on a "wrong" answer, "nothing"
+   is a completely normal response most of the time.
 
 ### 1.1 U Parsing
 1. Extract explicit requirements from user input
@@ -140,7 +187,18 @@ Before any initialization, O MUST check for existing task state.
 3. Write to `.agent/tasks/{task-id}/02-structured-spec.md`
 4. **Update state.json**: `status: INIT`, `phase: S_GENERATED`, `frozen: []`
 5. **HUMAN CHECKPOINT 1**: Present S to user; wait for confirmation or revision
-   - Phrase: "This is my understanding of your goal, including what will and won't get an integration/system-level check — please confirm or correct."
+   - Phrase: "This is my understanding of your goal — please confirm or correct."
+   - Present Verification Requirements as its own structured confirmation, not folded into the S
+     paragraph above (per the Structured Interaction Rule — this exact spot is where a real
+     requirement got missed in an earlier version of this framework, buried in prose):
+     ```
+     Verification requirements — confirm or flag:
+       TDD required: {yes/no}, scope: {features}
+       Integration test required: {yes/no}, scope: {boundary}
+       System test required: {yes/no}, scope: {what "whole system" means}
+
+     [All correct as shown] [I want to change one or more]
+     ```
 6. Once S is confirmed, it is FROZEN (⊙ operator)
 7. **Update state.json**: `status: CONFIRMED`, `phase: S_CONFIRMED`, `frozen: ["02"]`
 
@@ -173,8 +231,9 @@ Before any initialization, O MUST check for existing task state.
    | ASSERT-001  | FR-1        | feature | F-1               | Worker step 4       | drafted |
    | ASSERT-005  | FR-3        | system  | F-3, F-7           | after both PASS, Phase 5 | drafted |
    ```
-   - Phrase: "I derived N assertions from the spec — M of them are feature-level, K are milestone/system-level and only get checked once their covered features are all done. Here is the coverage matrix. Please spot-check or approve."
-   - **Mandatory self-check before presenting**: if S's Verification Requirements set `integration_test_required: true` or `system_test_required: true`, but the count of `Scope: milestone`/`Scope: system` assertions is 0, O MUST NOT silently present the matrix as-is. O must say: "S calls for integration/system-level verification but I generated 0 milestone/system-scope assertions — should I add one, or does per-feature coverage already satisfy this?" and get an explicit answer before Checkpoint 2 can be marked confirmed.
+   - Phrase: "I derived N assertions from the spec — M of them are feature-level, K are milestone/system-level and only get checked once their covered features are all done."
+   - Present as a structured choice, not an open-ended "please spot-check": `[Approve all as shown] [Flag specific assertion(s)]`
+   - **Mandatory self-check before presenting**: if S's Verification Requirements set `integration_test_required: true` or `system_test_required: true`, but the count of `Scope: milestone`/`Scope: system` assertions is 0, O MUST NOT silently present the matrix as-is. O must say: "S calls for integration/system-level verification but I generated 0 milestone/system-scope assertions" and present: `[Add a system-level assertion] [Per-feature coverage is sufficient]` — Checkpoint 2 cannot be marked confirmed until this is answered.
 6. Once C is confirmed, it is FROZEN and cannot be reshaped by implementation
 7. **Update state.json**: `phase: C_CONFIRMED`, `frozen: ["02", "03"]`
 
@@ -255,14 +314,17 @@ For each Milestone M-i from 1 to m:
 6. Initialize Loop Guard counters in `milestones/M-i/plan.md`:
    - `planning_adjustments: 0 / 3`
    - `global_iteration: {current} / 50`
-7. **Update state.json**:
+7. **Milestone check-in** (per `state.json`'s `milestone_checkin_preference`, set once at 1.0 Kickoff Invitation):
+   - If `on_demand` (default): just include one passive-reminder line in this milestone's kickoff output — "(anything new to flag, or a precedent from another project? just say so any time)" — do NOT insert a blocking structured choice
+   - If `every_milestone`: present the same structured choice as 1.0 step 1 (`[Share a previous project's lessons/violations] [Something else I should know] [Nothing — let's go]`); anything shared is recorded the same way (critical/workflow entry in `06-memory.md`, promoted immediately)
+8. **Update state.json**:
    - `status: RUNNING`
    - `phase: MILESTONE_{i}`
    - `current_milestone: M-{i}`
    - `last_role: O`
    - `last_action: PLAN`
    - `last_result: OK`
-8. Append to Audit Log: milestone start, features in scope, expected convergence k, integration/system obligations noted
+9. Append to Audit Log: milestone start, features in scope, expected convergence k, integration/system obligations noted
 
 ### M-i.2 Feature Execution Loop (k iterations per Feature)
 
@@ -433,26 +495,58 @@ Before proceeding to M-(i+1):
    - If FAIL: O generates a Fix Feature exactly as in the per-Feature F step (fix depth counter shared with the relevant features, capped the same way at 3); this is not exempt from the fix-depth/k_max guardrails
    - **Update state.json**: `last_role: V`, `last_action: VALIDATE`, `last_result: PASS | PARTIAL | FAIL`
 2. O reviews all verifications in M-i, including the integration/system record from step 1
-3. **Memory sweep**: O collects every `[MEMORY-CANDIDATE: type/category/severity]` tag from this
+3. **HUMAN CHECKPOINT 3.5: Pre-Acceptance Interrogation** (mandatory, every milestone, regardless of
+   reported status — this is NOT conditional on anything looking wrong, precisely because it exists to
+   catch the case where fabrication makes everything LOOK right):
+   - This is a human action, not something O performs on itself. O presenting a paragraph that
+     addresses this is not a substitute for a human actually asking it and actually reading the answer.
+   - The human operating this skill MUST ask, in these words or close to them:
+     > "Before I accept this milestone: did you cut corners or fake any verification? Be specific — for
+     > each assertion you marked PASS, tell me exactly what you ran and what you saw. If you skipped
+     > something, say so now."
+   - A vague reassurance ("everything was tested thoroughly") with no assertion-by-assertion
+     specificity is not an acceptable answer. Push back and name a specific assertion ID if the answer
+     is vague — a bare denial is much easier to fabricate convincingly than a specific, checkable claim.
+   - **If ANY shortcut is admitted, for ANY assertion, in this milestone** (this is not negotiated
+     case-by-case):
+     a. Every verification record in this milestone — not just the admitted one — is immediately
+        downgraded to UNVERIFIED, regardless of what it currently says. One admitted fabrication moves
+        the base rate on every other PASS in the same batch; treat the whole batch as unverified, not
+        just the confessed part.
+     b. O re-runs the ENTIRE milestone's verification pass for real, at maximum evidence strictness —
+        screenshots / literal tool-output paste required even for assertions where this wasn't
+        required before this happened.
+     c. Record a `category: workflow`, `severity: critical` entry in `06-memory.md`
+        (`references/memory-template.md`) — "Verification admitted-fabrication" — and promote it to
+        `.agent/memory.md` immediately per the Promotion Rule's critical-severity exception, so future
+        tasks' Validators are pre-loaded with this exact risk from the start.
+     d. Log a distinct `INTERROGATION_FAILED` row in the Audit Log — do not fold this into a normal
+        VALIDATE row, it must be independently searchable.
+     e. `completed_milestones` may NOT be appended until the redone verification pass is clean AND a
+        second Pre-Acceptance Interrogation on the redone work gets a clean, specific answer.
+   - If the human declines to ask this at all for a given milestone, that is their call to make — but O
+     must not treat silence as having passed this checkpoint, and must not claim in any summary that
+     verification was confirmed if this was skipped.
+4. **Memory sweep**: O collects every `[MEMORY-CANDIDATE: type/category/severity]` tag from this
    milestone's Handoffs and verification records, and writes/updates the corresponding entries in
    `milestones/M-i/reflection.md`'s memory section (create the entry if new, increment Occurrences if
    it matches an existing one from earlier in this task) — then merges those into `06-memory.md`
    (`references/memory-template.md`, `Scope: task`). A tagged candidate that never gets swept here is
    silently lost — this step is not optional even if there are zero tags this milestone (say so explicitly)
-4. O increments `global_iteration` counter in state.json
-5. If `global_iteration >= 50`:
+5. O increments `global_iteration` counter in state.json
+6. If `global_iteration >= 50`:
    - O triggers **Graceful Termination** (see Phase 6)
    - O outputs all completed deliverables
    - O does NOT proceed to M-(i+1)
    - **Update state.json**: `status: COMPLETED`, `phase: GRACEFUL_TERMINATION`
-6. **HUMAN CHECKPOINT 4** (if any FAIL or PARTIAL remains, INCLUDING a FAIL-NO-INFRASTRUCTURE from step 1, AND human intervention is explicitly requested by user):
+7. **HUMAN CHECKPOINT 4** (if any FAIL or PARTIAL remains, INCLUDING a FAIL-NO-INFRASTRUCTURE from step 1, AND human intervention is explicitly requested by user):
    - Present: milestone status, remaining issues, proposed fix plan
    - Phrase: "Milestone {i} has N open issues (including {k} integration/system-level). Proceed with fixes, or accept partial and continue?"
    - Note: O auto-downgrades by default; human checkpoint is optional override
-7. If human says "accept partial", record technical debt in `06-memory.md`, **explicitly naming which milestone/system-scope assertions were accepted as unverified** — a generic "accepted partial" entry with no assertion IDs is not sufficient
-8. `completed_milestones` may NOT be appended while any `Scope: milestone` or `Scope: system` assertion due this milestone (i.e. all its `Covered by Features` are in M-i or earlier) is unresolved (no PASS, no explicit human-accepted PARTIAL/FAIL-NO-INFRASTRUCTURE) — this is a hard gate, not a review formality
-9. O appends Milestone completion summary to Audit Log
-10. **Update state.json**:
+8. If human says "accept partial", record technical debt in `06-memory.md`, **explicitly naming which milestone/system-scope assertions were accepted as unverified** — a generic "accepted partial" entry with no assertion IDs is not sufficient
+9. `completed_milestones` may NOT be appended while any `Scope: milestone` or `Scope: system` assertion due this milestone (i.e. all its `Covered by Features` are in M-i or earlier) is unresolved (no PASS, no explicit human-accepted PARTIAL/FAIL-NO-INFRASTRUCTURE) — this is a hard gate, not a review formality
+10. O appends Milestone completion summary to Audit Log
+11. **Update state.json**:
    - `completed_milestones: append M-{i}`
    - `completed_features: append all features in M-{i}`
    - `last_role: O`
