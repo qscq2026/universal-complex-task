@@ -2,7 +2,7 @@
 
 > A structured, human-in-the-loop framework for managing **complex multi-step tasks** within a single Claude Code session.
 
-[![Version](https://img.shields.io/badge/version-v3.3-blue)]()
+[![Version](https://img.shields.io/badge/version-v3.1-blue)]()
 [![Architecture](https://img.shields.io/badge/architecture-Factory--inspired-green)]()
 
 ---
@@ -80,6 +80,7 @@ All three roles are **context switches within the same session** — no separate
 
 ### Phase 0 — Pre-Check
 Evaluate the task against the 6 complexity dimensions. If < 2 flags, switch to fast-execution mode.
+If ≥ 4 of the 6 flags are triggered, the task is flagged as **unusually complex** — this unlocks an optional Coverage Clarification Pass (Phase 1.2b) to help surface gaps in the spec before the human confirms it.
 
 ### Phase 0.5 — State Detection & Resume
 Before any initialization, check for existing task state. If a previous session was interrupted, present resume options to the user:
@@ -91,7 +92,8 @@ Before any initialization, check for existing task state. If a previous session 
 Three layers of specification, each with human confirmation:
 
 1. **U Parsing** — Extract explicit + implicit requirements, write to `01-user-intent.md`
-2. **S Generation** — Structured spec with functional/non-functional/anti-requirements + verification requirements → **Human confirms**
+2. **S Generation** — Structured spec with functional/non-functional/anti-requirements + verification requirements. Features **guess-first ambiguity handling**: defaults are filled with industry-standard choices (hard cap: 3 `[NEEDS CLARIFICATION]` markers), and every assumption is recorded for structured confirmation → **Human confirms**
+   - **Coverage Clarification Pass** (Phase 1.2b, optional, only for tasks flagged unusually complex at Phase 0): A structured 5-category gap assessment (Scope & Boundaries · Success Definition · Structural Dependencies · External Constraints · Verification Approach) with targeted questions, coverage table, and deferred/outstanding resolution flow.
 3. **C Generation** — Validation contract with machine-executable assertions → **Human spot-checks**
 4. **Feature Planning** — Milestone breakdown with assertion mapping → **Human confirms**
 
@@ -222,6 +224,7 @@ This framework is **inspired by** the Factory multi-agent architecture but adapt
 
 | Tag | Description |
 |-----|-------------|
+| **v3.1** | Coverage Clarification Pass, complexity flag counting (≥4/6), guess-first ambiguity handling, structured Checkpoint 1 with assumption confirmation |
 | **v3.0** | Asset directory, skill logic HTML, process retrospective docs |
 | **v2.0** | Major revision — expanded templates, enhanced skill definition |
 | **v1.0** | Initial release |
