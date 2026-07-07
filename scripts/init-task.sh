@@ -117,6 +117,7 @@ cat > "$TASK_DIR/state.json" << EOF
   "pending_features": [],
   "frozen_files": [],
   "milestone_checkin_preference": "on_demand",
+  "clarify_pass_enabled": false,
   "last_role": "O",
   "last_action": "INIT",
   "last_result": "OK",

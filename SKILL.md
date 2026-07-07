@@ -67,6 +67,11 @@ Evaluate against 6 dimensions. If < 2 "complex" flags, switch to fast-execution 
 | Completion rounds | 1-2 turns | requires multi-turn persistence |
 | Verification dimensions | single | multi-dimensional |
 
+If >= 4 of the 6 flags are "complex" (not just the >=2 threshold for entering this mode at all), note it
+for 1.0 Kickoff Invitation — this is the signal used to *recommend* (never force) turning on the optional
+Coverage Clarification Pass (see 1.2b). A task barely over the complexity threshold doesn't need it; one
+that trips most of the dimensions is exactly the kind where gaps are expensive to discover late.
+
 ---
 
 ## Phase 0.5: State Detection & Resume (Lightweight Lifecycle)
@@ -133,7 +138,7 @@ explicit bracketed choice list, e.g. `[Resume] [Restart] [Inspect]` above. Do no
 decisions into one free-text question the human has to unpack and respond to in prose — a requirement
 buried in a wall of prose is easy to miss, a requirement sitting in its own bracketed option is not.
 If the executing environment offers a native structured single/multi-select UI tool, prefer that over plain text brackets — the brackets are the universal fallback, not the ceiling.
-This applies throughout Phase 1's Human Checkpoints (see 1.0–1.3 below) and wherever else 2+ options exist.
+This applies throughout Phase 1's Human Checkpoints (see 1.0–1.4 below) and wherever else 2+ options exist.
 **Exception**: Human Checkpoint 3.5 (Pre-Acceptance Interrogation, see M-i.3) must stay open-ended —
 turning "did you cut corners" into selectable options hands the executing agent an easy denial button.
 
@@ -160,7 +165,19 @@ turning "did you cut corners" into selectable options hands the executing agent 
    Store the answer in `state.json`'s `milestone_checkin_preference` (`every_milestone` | `on_demand`,
    default `on_demand` if the human doesn't express a preference — do not default to the more
    automation-costly option). This persists across suspend/resume; only asked once per task.
-4. Proceed to 1.1 regardless of what was chosen — this step never blocks on a "wrong" answer, "nothing"
+4. If Phase 0 flagged this task as tripping >=4 of the 6 complexity dimensions, ask a third structured
+   choice in the same turn — otherwise skip this question entirely, don't ask it by default:
+   ```
+   This looks complex enough that gaps in the spec could be expensive to discover late. Want me to run
+   a structured coverage check on the spec before you confirm it — a few extra questions organized by
+   category (scope, success criteria, dependencies, constraints, how each part gets verified), catching
+   gaps the normal draft might miss?
+   [Yes, run the coverage check] [No, keep it to the normal flow]
+   ```
+   Store the answer in `state.json`'s `clarify_pass_enabled` (default `false`). See 1.2b for what this
+   turns on. Saying no here costs nothing — this whole question only appears for tasks already flagged
+   as unusually complex, and even then the default framing doesn't push either way.
+5. Proceed to 1.1 regardless of what was chosen — this step never blocks on a "wrong" answer, "nothing"
    is a completely normal response most of the time.
 
 ### 1.1 U Parsing
@@ -178,16 +195,74 @@ turning "did you cut corners" into selectable options hands the executing agent 
    - Anti-requirements (explicit exclusions)
    - Assumptions & dependencies
    - **Verification Requirements** (see below — this is not optional to consider, even if the answer is "no")
-2. **Verification Requirements** subsection — O must explicitly determine and state:
+2. **Ambiguity handling — guess first, mark rarely**: for anything U doesn't specify, O's DEFAULT action
+   is to fill it with an industry-standard/context-appropriate default and record it under Assumptions &
+   dependencies — not to ask. Only insert an inline `[NEEDS CLARIFICATION: specific question]` marker at
+   the exact point of ambiguity when ALL three hold:
+   - it significantly impacts scope, UX, or which assertions get written later, AND
+   - 2+ reasonable interpretations exist with genuinely different downstream implications, AND
+   - no reasonable default exists to fall back on
+   **Hard cap: 3 markers total**, this task's markers only, prioritized in this order when trimming:
+   scope > security/privacy > UX > technical detail. If something ambiguous doesn't make the cut, it
+   gets a documented default (Assumptions), not silence and not a 4th marker.
+3. **Verification Requirements** subsection — O must explicitly determine and state:
    - `tdd_required`: true/false — will Worker write a failing test before implementation, per feature?
    - `integration_test_required`: true/false — do 2+ features need a cross-feature check once both exist together?
    - `system_test_required`: true/false — does the deliverable need an end-to-end check as a whole, once all/most milestones are done?
    - If any is true, O must also name WHICH features/boundaries it applies to (a bare "yes" with no scope is not acceptable — e.g. "checkout flow: integration test required across F-cart, F-payment, F-order once all three are individually PASS")
    - **Trigger check**: if U or the Functional Requirements contain language like "end-to-end", "整体", "流程", "workflow", "across", "together", O must set at least `integration_test_required: true` and name the scope, or explicitly justify why not (e.g. "single isolated script, no cross-component boundary exists")
-3. Write to `.agent/tasks/{task-id}/02-structured-spec.md`
-4. **Update state.json**: `status: INIT`, `phase: S_GENERATED`, `frozen: []`
-5. **HUMAN CHECKPOINT 1**: Present S to user; wait for confirmation or revision
+4. Write to `.agent/tasks/{task-id}/02-structured-spec.md`
+5. **Update state.json**: `status: INIT`, `phase: S_GENERATED`, `frozen: []`
+6. **If `state.json`'s `clarify_pass_enabled: true`** (set at 1.0, only for tasks flagged unusually
+   complex): run the Coverage Clarification Pass on the draft S produced above, BEFORE Checkpoint 1.
+   This is broader and more deliberate than step 2's guess-first marker mechanism — that one only
+   catches the 1-3 things that truly can't be defaulted; this assesses the whole draft against a fixed
+   set of categories, looking for gaps a quick draft pass wouldn't catch. If `clarify_pass_enabled` is
+   `false`, skip straight to step 7 (Checkpoint 1).
+   a. Assess the draft against these 5 categories — **adapt the names/wording to fit the actual task
+      type** (written generically on purpose; do not force software-specific language like "API
+      contracts" onto a non-software task): **Scope & Boundaries** (what's explicitly in vs out) ·
+      **Success Definition** (how "done"/"correct" will be recognized, ideally measurable) ·
+      **Structural Dependencies** (what depends on what) · **External Constraints** (tools, data,
+      environment, access) · **Verification Approach** (how each meaningful part actually gets checked —
+      this connects to step 3's Verification Requirements, don't re-derive it separately). Status per
+      category: **Clear** (sufficient) / **Partial** (real gaps remain) / **Missing** (no information).
+   b. For every Partial/Missing category, ask targeted questions, batched together per the Structured
+      Interaction Rule (never one at a time) — **hard cap: 5 questions total across all categories.**
+      Early termination: if the human signals "done"/"that's enough", stop immediately and move to (c)
+      with whatever was gathered.
+   c. Update S directly with every answer (not just log it) — the relevant section changes in place.
+      Also append a dated entry under a `## Clarifications` section in S, so there's a trace of what was
+      asked, separate from the main content.
+   d. Produce a coverage table and show it to the human:
+      ```
+      | Category | Status | Notes |
+      |----------|--------|-------|
+      | Scope & Boundaries | Resolved | — |
+      | Success Definition | Clear | already sufficient in original draft |
+      | Verification Approach | Deferred | exceeds the 5-question cap; revisit if issues arise |
+      | External Constraints | Outstanding | still gappy, flagged, low immediate impact |
+      ```
+   e. If no Outstanding/Deferred remain: proceed to step 7 (Checkpoint 1). If any remain, present:
+      `[Re-run the coverage check on what's still gappy] [Proceed to confirmation — noted rework risk]`
+      — don't silently proceed and don't hard-block either.
+   f. **Update state.json**: `phase: S_CLARIFIED`
+7. **HUMAN CHECKPOINT 1**: Present S to user; wait for confirmation or revision
    - Phrase: "This is my understanding of your goal — please confirm or correct."
+   - **Gate**: cannot be marked confirmed while any `[NEEDS CLARIFICATION]` marker remains in S. If any
+     exist, present all of them together (never one at a time) using the Structured Interaction Rule's
+     bracket format, get answers, update S, then re-present this checkpoint.
+   - **Assumptions get equal billing, not second-class treatment**: list every default O filled in under
+     step 2, as its own structured confirmation, same weight as Verification Requirements below — an
+     assumption the human never looked at because it wasn't a "marker" is exactly as risky as an
+     unresolved marker would have been:
+     ```
+     Assumptions made (I filled these in myself — confirm or correct):
+       {each default O chose, one line, e.g. "Auth method: assumed email/password (no auth
+       method specified, this is the common default for this task type)"}
+
+     [All assumptions correct] [I want to change one or more]
+     ```
    - Present Verification Requirements as its own structured confirmation, not folded into the S
      paragraph above (per the Structured Interaction Rule — this exact spot is where a real
      requirement got missed in an earlier version of this framework, buried in prose):
@@ -199,8 +274,8 @@ turning "did you cut corners" into selectable options hands the executing agent 
 
      [All correct as shown] [I want to change one or more]
      ```
-6. Once S is confirmed, it is FROZEN (⊙ operator)
-7. **Update state.json**: `status: CONFIRMED`, `phase: S_CONFIRMED`, `frozen: ["02"]`
+8. Once S is confirmed, it is FROZEN (⊙ operator)
+9. **Update state.json**: `status: CONFIRMED`, `phase: S_CONFIRMED`, `frozen: ["02"]`
 
 ### 1.3 C Generation (Validation Contract) — Human Spot-Check Layer 2
 1. O translates S into machine-executable assertions BEFORE any implementation
@@ -233,7 +308,7 @@ turning "did you cut corners" into selectable options hands the executing agent 
    ```
    - Phrase: "I derived N assertions from the spec — M of them are feature-level, K are milestone/system-level and only get checked once their covered features are all done."
    - Present as a structured choice, not an open-ended "please spot-check": `[Approve all as shown] [Flag specific assertion(s)]`
-   - **Mandatory self-check before presenting**: if S's Verification Requirements set `integration_test_required: true` or `system_test_required: true`, but the count of `Scope: milestone`/`Scope: system` assertions is 0, O MUST NOT silently present the matrix as-is. O must say: "S calls for integration/system-level verification but I generated 0 milestone/system-scope assertions" and present: `[Add a system-level assertion] [Per-feature coverage is sufficient]` — Checkpoint 2 cannot be marked confirmed until this is answered.
+   - **Mandatory self-check before presenting**: if S's Verification Requirements set `integration_test_required: true` or `system_test_required: true`, but the count of `Scope: milestone`/`Scope: system` assertions is 0, O MUST NOT silently present the matrix as-is. O must say: "S calls for integration/system-level verification but I generated 0 milestone/system-scope assertions" and present: `[Add a system-level assertion] [Per-feature coverage is sufficient]` — Checkpoint 2 cannot be marked confirmed until this is answered. (This same mapping gets re-verified at 1.4's Cross-Artifact Consistency Check, once Features exist — that's not a duplicate, it's catching drift between here and there.)
 6. Once C is confirmed, it is FROZEN and cannot be reshaped by implementation
 7. **Update state.json**: `phase: C_CONFIRMED`, `frozen: ["02", "03"]`
 
@@ -246,10 +321,29 @@ turning "did you cut corners" into selectable options hands the executing agent 
    - Each Milestone is independently deliverable and verifiable
 5. Write to `.agent/tasks/{task-id}/04-features-and-milestones.md`
 6. **Update state.json**: `phase: PLAN_GENERATED`
-7. **HUMAN CHECKPOINT 3**: Confirm feature list + milestone plan
-   - Phrase: "These features cover all assertions. Milestones are staged as shown. Approve to proceed?"
-8. Once approved, plan is FROZEN
-9. **Update state.json**: `status: CONFIRMED`, `phase: PLAN_CONFIRMED`, `frozen: ["02", "03", "04"]`
+7. **Cross-Artifact Consistency Check** (read-only — this step only finds and reports, it does not itself
+   edit S, C, or the Feature/Milestone list; O fixes what it flags, then re-runs this check once before
+   presenting Checkpoint 3). This generalizes Checkpoint 2's self-check (which only compared S's
+   Verification Requirements against C's Scope distribution, at the point C was drafted, before Features
+   existed) — re-verify that one here too in case anything changed since, plus check the two things that
+   couldn't be checked until Features exist:
+   - **HARD (blocks Checkpoint 3 until fixed)**:
+     a. Every S Functional Requirement is traceable to >= 1 assertion in C — an uncovered requirement
+        means C silently dropped something S asked for
+     b. Every assertion in C is covered by >= 1 Feature in the draft list — an assertion nobody
+        implements or tests is dead weight in the contract
+     c. Re-check Checkpoint 2's mapping: every `integration_test_required`/`system_test_required: true`
+        in S still has a matching `Scope: milestone`/`system` assertion, AND that assertion's `Covered
+        by Features` are actually present in the Feature list drafted here
+   - **SOFT (shown to the human, does not block)**:
+     d. Orphan Features — a Feature exists that doesn't map back to any assertion or requirement. Not
+        necessarily wrong (could be legitimate scaffolding/infra work), but worth a human's eyes.
+   - Report format: a short table, one row per finding, columns `Severity (HARD/SOFT) | What | Where`.
+     Zero findings is a normal, expected result — say so plainly, don't manufacture findings to look thorough.
+8. **HUMAN CHECKPOINT 3**: Confirm feature list + milestone plan
+   - Phrase: "These features cover all assertions — cross-checked, not just asserted. Milestones are staged as shown. Approve to proceed?"
+9. Once approved, plan is FROZEN
+10. **Update state.json**: `status: CONFIRMED`, `phase: PLAN_CONFIRMED`, `frozen: ["02", "03", "04"]`
 
 ---
 
@@ -275,7 +369,7 @@ Create `.agent/tasks/{task-id}/` with:
 {
   "task_id": "task-{timestamp}",
   "status": "INIT | CONFIRMED | RUNNING | SUSPENDED | COMPLETED | DELETED",
-  "phase": "U_PARSED | S_GENERATED | S_CONFIRMED | C_GENERATED | C_CONFIRMED | PLAN_GENERATED | PLAN_CONFIRMED | MILESTONE_{n} | GRACEFUL_TERMINATION",
+  "phase": "U_PARSED | S_GENERATED | S_CLARIFIED | S_CONFIRMED | C_GENERATED | C_CONFIRMED | PLAN_GENERATED | PLAN_CONFIRMED | MILESTONE_{n} | GRACEFUL_TERMINATION",
   "current_milestone": "M-{n} | null",
   "current_feature": "F-{j} | null",
   "current_iteration": 0,
